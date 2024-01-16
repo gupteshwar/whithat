@@ -1,1 +1,7 @@
-# whithat
+## Whitehats
+
+Whitehats
+
+#### License
+
+MIT
