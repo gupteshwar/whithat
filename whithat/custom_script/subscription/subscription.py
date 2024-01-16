@@ -27,12 +27,10 @@ def upgrade_plan(doc):
         for i in subDoc.plans:
 
             if not i.custom_is_active:
-                print("create sales invoice---++++-----")
 
                 plan_doc = frappe.get_doc("Subscription Plan", i.plan)
                 for s in si_doc.items:
                     plans = []
-                    print("create sales invoice--------")
                     if invoice.custom_is_custom != 1 and (s.item_code == plan_doc.item and i.qty == s.qty and i.custom_amount == s.amount):
                         i.custom_is_active = 1
                         subDoc.save()
@@ -41,7 +39,6 @@ def upgrade_plan(doc):
 
                         start_date = i.custom_subscription_start_date
                         rate = get_plan_rate(subDoc.current_invoice_start,s.amount,i.custom_amount,i.qty,i.plan,start_date, subDoc.current_invoice_end),
-                        print('rate-----',rate)
                         plans.append(i)
                         new_invoice = create_invoices(subDoc,prorate,start_date,plans,rate)
                         if new_invoice:
@@ -52,7 +49,6 @@ def upgrade_plan(doc):
                         start_date = i.custom_subscription_start_date
                         rate = get_plan_rate(subDoc.current_invoice_start, s.amount, i.custom_amount, i.qty, i.plan,
                                              start_date, subDoc.current_invoice_end),
-                        print('rate-----', rate)
                         plans.append(i)
                         is_return = True
                         new_invoice = create_invoices(subDoc, prorate, start_date, plans, rate,is_return,invoice)
@@ -67,8 +63,6 @@ def upgrade_plan(doc):
 @frappe.whitelist()
 def create_invoices(doc, prorate,start_date,plans,rate,is_return=None,against_invoice=None):
     subDoc = frappe.get_doc("Subscription",doc)
-    print(':::::::::::::::',doc.plans,"--",plans,start_date)
-
     """
     Creates a `Invoice`, submits it and returns it
     """
@@ -111,11 +105,8 @@ def create_invoices(doc, prorate,start_date,plans,rate,is_return=None,against_in
     # Subscription is better suited for service items. I won't update `update_stock`
     # for that reason
     items_list = get_items_from_plans(subDoc,plans, prorate,rate[0])
-    print('--------------33',items_list,rate, type(plans))
     for item in items_list:
-        print("~~~~~~~~~~~~~~~",item)
         if is_return:
-        #     item["qty"] = '-' + str(item["qty"])
             item["rate"] = str(abs(item["rate"]))
         item["cost_center"] = subDoc.cost_center
         invoice.append("items", item)
@@ -187,11 +178,9 @@ def get_items_from_plans(self, plans, prorate=0,rate=0):
 
     items = []
     party = self.party
-    print('=========', type(plans), "++++", type(self.plans))
 
     for plan in plans:
         plan_doc = frappe.get_doc("Subscription Plan", plan.plan)
-        print("+---++++++",plan)
         item_code = plan_doc.item
 
         if self.party == "Customer":
@@ -247,5 +236,4 @@ def get_plan_rate(s_start_date,s_amount,p_amount,p_qty,plan,start_date=None, end
         p_current_amount = (p_amount / s_no_of_months)*cp_no_of_months
         print('s-------------------------p-------------------',s_no_of_months,cp_no_of_months,s_current_amount,p_current_amount)
         rate = (p_current_amount - s_current_amount)/p_qty
-        print("--------",rate)
         return rate
