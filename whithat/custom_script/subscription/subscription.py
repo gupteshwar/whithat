@@ -15,6 +15,7 @@ from erpnext.utilities.product import get_price
 from frappe.utils import date_diff, flt, get_first_day, get_last_day, getdate
 from dateutil import relativedelta
 from erpnext.accounts.doctype.sales_invoice.sales_invoice import make_sales_return
+from datetime import date
 
 @frappe.whitelist()
 def upgrade_plan(doc):
@@ -23,11 +24,16 @@ def upgrade_plan(doc):
     invoice = Subscription.get_current_invoice(subDoc)
     prorate = frappe.db.get_single_value("Subscription Settings", "prorate")
     si_doc = frappe.get_doc('Sales Invoice',invoice)
-    if si_doc:
+    if (subDoc.custom_is_auto_renewal == 1) and ((date.today() < subDoc.end_date)
+          and (date_diff(subDoc.end_date,date.today()) == int(subDoc.custom_generate_invoice_before_days))):
+            print('date diff -----///-----------', date_diff(subDoc.end_date, date.today()))
+            is_renewal = True
+            new_invoice = create_invoices(subDoc, prorate, date.today(), subDoc.plans, is_renewal)
+
+    elif si_doc:
         for i in subDoc.plans:
 
             if not i.custom_is_active:
-
                 plan_doc = frappe.get_doc("Subscription Plan", i.plan)
                 for s in si_doc.items:
                     plans = []
@@ -167,7 +173,7 @@ def create_invoices(doc, prorate,start_date,plans,rate,is_return=None,against_in
     return invoice
 
 @frappe.whitelist()
-def get_items_from_plans(self, plans, prorate=0,rate=0):
+def get_items_from_plans(self, plans, prorate=0,rate=0,is_renewal=None):
     """
     Returns the `Item`s linked to `Subscription Plan`
     """
@@ -180,6 +186,8 @@ def get_items_from_plans(self, plans, prorate=0,rate=0):
     party = self.party
 
     for plan in plans:
+        if is_renewal:
+            rate = get_plan_rate(plan.plan, plan.qty, party, self.current_invoice_start, self.current_invoice_end)
         plan_doc = frappe.get_doc("Subscription Plan", plan.plan)
         item_code = plan_doc.item
 

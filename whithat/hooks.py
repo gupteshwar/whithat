@@ -13,6 +13,11 @@ app_license = "MIT"
 doctype_js = {
     "Subscription": "public/js/subscription.js",
 }
+
+
+fixtures = [
+    {"dt": "Custom Field", "filters": {"module": "Whitehats"}},
+]
 # app_include_css = "/assets/whithat/css/whithat.css"
 # app_include_js = "/assets/whithat/js/whithat.js"
 
@@ -148,7 +153,12 @@ doctype_js = {
 # 		"whithat.tasks.monthly"
 # 	],
 # }
-
+#
+# scheduler_events = {
+#     "daily": [
+#         "whithat.whithat.custom_script.subscription.subscription.upgrade_plan"
+#     ]
+# }
 # Testing
 # -------
 
