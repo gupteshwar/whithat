@@ -46,7 +46,7 @@ def upgrade_plan(doc):
                         subDoc.save()
                         # continue
                     elif (i.custom_amount >= s.amount):
-
+                        print('```````````````okk ')
                         start_date = i.custom_subscription_start_date
                         rate = get_plan_rates(subDoc.current_invoice_start,s.amount,i.custom_amount,i.qty,i.plan,start_date, subDoc.current_invoice_end),
                         plans.append(i)
@@ -56,12 +56,13 @@ def upgrade_plan(doc):
                             subDoc.append("invoices", {"document_type": doctype, "invoice": new_invoice.name})
                             subDoc.save()
                     else:
+                        print('-----not okk')
                         start_date = i.custom_subscription_start_date
                         rate = get_plan_rates(subDoc.current_invoice_start, s.amount, i.custom_amount, i.qty, i.plan,
                                              start_date, subDoc.current_invoice_end),
                         plans.append(i)
                         is_return = True
-                        new_invoice = create_invoices(subDoc, prorate, start_date, plans, rate,is_return,invoice)
+                        new_invoice = create_invoices(subDoc, prorate, start_date, plans, rate,is_return)
                         if new_invoice:
                             i.custom_is_active = 1
                             subDoc.append("invoices", {"document_type": doctype, "invoice": new_invoice.name})
@@ -177,7 +178,7 @@ def create_invoices(doc, prorate,start_date,plans,rate,is_return=None):
     return invoice
 
 @frappe.whitelist()
-def get_items_from_plans(self, plans, prorate=0,rate=0,is_renewal=None):
+def get_items_from_plans(self, plans, prorate=0,rate=0):
     """
     Returns the `Item`s linked to `Subscription Plan`
     """
