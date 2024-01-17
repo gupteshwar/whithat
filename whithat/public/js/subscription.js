@@ -5,7 +5,7 @@ frappe.ui.form.on('Subscription', {
              frappe.call({
                 method: 'whithat.custom_script.subscription.subscription.upgrade_plan',
                 args: {
-                    doc: frm.doc.name,
+                    doc: frm.doc,
                 },
                 callback: function(r){
                     console.log(r.message)
