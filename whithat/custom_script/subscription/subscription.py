@@ -21,7 +21,8 @@ from erpnext.accounts.doctype.subscription_plan.subscription_plan import get_pla
 
 @frappe.whitelist()
 def upgrade_plan(doc):
-    subDoc = frappe.get_doc("Subscription",doc)
+    data = frappe.parse_json(doc)
+    subDoc = frappe.get_doc("Subscription",data['name'])
     doctype = "Sales Invoice" if subDoc.party_type == "Customer" else "Purchase Invoice"
     invoice = Subscription.get_current_invoice(subDoc)
     prorate = frappe.db.get_single_value("Subscription Settings", "prorate")
