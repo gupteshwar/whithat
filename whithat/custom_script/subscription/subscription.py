@@ -27,14 +27,16 @@ def upgrade_plan(doc):
     invoice = Subscription.get_current_invoice(subDoc)
     prorate = frappe.db.get_single_value("Subscription Settings", "prorate")
     si_doc = frappe.get_doc('Sales Invoice',invoice.name)
-    # if (subDoc.custom_is_auto_renewal == 1) and ((date.today() < subDoc.end_date)
-    #       and (date_diff(subDoc.end_date,date.today()) == int(subDoc.custom_generate_invoice_before_days))):
-    #         print('date diff -----///-----------', date_diff(subDoc.end_date, date.today()))
-    #         is_renewal = True
-    #         new_invoice = create_invoices(subDoc, prorate, date.today(), subDoc.plans, is_renewal)
-    #         if new_invoice:
-    #             subDoc.append("invoices", {"document_type": doctype, "invoice": new_invoice.name})
-    #             subDoc.save()
+    # Check if auto-renewal is enabled and it's time to generate the invoice
+    # if subDoc.custom_is_auto_renewal == 1 and date.today() < subDoc.end_date \
+    #         and date_diff(subDoc.end_date, date.today()) == int(subDoc.custom_generate_invoice_before_days):
+    #
+    #     is_renewal = True
+    #     new_invoice = create_invoices(subDoc, prorate, date.today(),subDoc.plans, 0, False, is_renewal)
+    #
+    #     if new_invoice:
+    #         subDoc.append("invoices", {"document_type": "Sales Invoice", "invoice": new_invoice.name})
+    #         subDoc.save()
     if si_doc:
         for i in subDoc.plans:
 
@@ -47,7 +49,6 @@ def upgrade_plan(doc):
                         subDoc.save()
                         # continue
                     elif (i.custom_amount >= s.amount):
-                        print('```````````````okk ')
                         start_date = i.custom_subscription_start_date
                         rate = get_plan_rates(subDoc.current_invoice_start,s.amount,i.custom_amount,i.qty,i.plan,start_date, subDoc.current_invoice_end),
                         plans.append(i)
@@ -57,7 +58,6 @@ def upgrade_plan(doc):
                             subDoc.append("invoices", {"document_type": doctype, "invoice": new_invoice.name})
                             subDoc.save()
                     else:
-                        print('-----not okk')
                         start_date = i.custom_subscription_start_date
                         rate = get_plan_rates(subDoc.current_invoice_start, s.amount, i.custom_amount, i.qty, i.plan,
                                              start_date, subDoc.current_invoice_end),
@@ -74,7 +74,8 @@ def upgrade_plan(doc):
 
 @frappe.whitelist()
 def create_invoices(doc, prorate,start_date,plans,rate,is_return=None):
-    subDoc = frappe.get_doc("Subscription",doc)
+    print('doc--------------------',doc.name)
+    subDoc = frappe.get_doc("Subscription",doc.name)
     """
     Creates a `Invoice`, submits it and returns it
     """
@@ -243,6 +244,7 @@ def get_items_from_plans(self, plans, prorate=0,rate=0):
 
 @frappe.whitelist()
 def get_plan_rates(s_start_date,s_amount,p_amount,p_qty,plan,start_date=None, end_date=None):
+    print('plan -------------',plan)
     plan = frappe.get_doc("Subscription Plan", plan)
 
     if plan.price_determination == "Fixed Rate":
