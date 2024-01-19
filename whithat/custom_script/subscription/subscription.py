@@ -26,7 +26,7 @@ def upgrade_plan(doc):
     doctype = "Sales Invoice" if subDoc.party_type == "Customer" else "Purchase Invoice"
     invoice = Subscription.get_current_invoice(subDoc)
     prorate = frappe.db.get_single_value("Subscription Settings", "prorate")
-    si_doc = frappe.get_doc('Sales Invoice',invoice)
+    si_doc = frappe.get_doc('Sales Invoice',invoice.name)
     # if (subDoc.custom_is_auto_renewal == 1) and ((date.today() < subDoc.end_date)
     #       and (date_diff(subDoc.end_date,date.today()) == int(subDoc.custom_generate_invoice_before_days))):
     #         print('date diff -----///-----------', date_diff(subDoc.end_date, date.today()))
