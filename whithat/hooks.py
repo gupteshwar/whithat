@@ -136,6 +136,13 @@ fixtures = [
 # Scheduled Tasks
 # ---------------
 
+scheduler_events = {
+    'cron': {
+        '0 12 * * *': [
+            'whithat.custom_script.subscription.subscription.upgrade_plan'
+        ],
+    },
+}
 # scheduler_events = {
 # 	"all": [
 # 		"whithat.tasks.all"
