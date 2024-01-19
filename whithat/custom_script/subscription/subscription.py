@@ -28,18 +28,18 @@ def upgrade_plan(doc):
     prorate = frappe.db.get_single_value("Subscription Settings", "prorate")
     si_doc = frappe.get_doc('Sales Invoice',invoice.name)
     # Check if auto-renewal is enabled and it's time to generate the invoice
-    # if subDoc.custom_is_auto_renewal == 1 and date.today() < subDoc.end_date \
-    #         and date_diff(subDoc.end_date, date.today()) == int(subDoc.custom_generate_invoice_before_days):
-    #
-    #     is_renewal = True
-    #     new_invoice = create_invoices(subDoc, prorate, date.today(),subDoc.plans, 0, False, is_renewal)
-    #
-    #     if new_invoice:
-    #         subDoc.append("invoices", {"document_type": "Sales Invoice", "invoice": new_invoice.name})
-    #         subDoc.save()
-    if si_doc:
-        for i in subDoc.plans:
+    if subDoc.custom_is_auto_renewal == 1 and date.today() < subDoc.end_date \
+            and date_diff(subDoc.end_date, date.today()) == int(subDoc.custom_generate_invoice_before_days) and invoice.custom_is_renewal !=1:
+        print('date diff-----------', date_diff(subDoc.end_date, date.today()))
+        is_renewal = True
+        new_invoice = create_invoices(subDoc, prorate, date.today(),subDoc.plans, 0, False, is_renewal)
 
+        if new_invoice:
+            subDoc.append("invoices", {"document_type": "Sales Invoice", "invoice": new_invoice.name})
+            subDoc.save()
+            send_email(subDoc, new_invoice)
+    elif si_doc:
+        for i in subDoc.plans:
             if not i.custom_is_active:
                 plan_doc = frappe.get_doc("Subscription Plan", i.plan)
                 for s in si_doc.items:
@@ -47,12 +47,12 @@ def upgrade_plan(doc):
                     if invoice.custom_is_custom != 1 and (s.item_code == plan_doc.item and i.qty == s.qty and i.custom_amount == s.amount):
                         i.custom_is_active = 1
                         subDoc.save()
-                        # continue
+                        break
                     elif (i.custom_amount >= s.amount):
                         start_date = i.custom_subscription_start_date
-                        rate = get_plan_rates(subDoc.current_invoice_start,s.amount,i.custom_amount,i.qty,i.plan,start_date, subDoc.current_invoice_end),
+                        rate = get_plan_rates(subDoc.current_invoice_start, s.amount, i.custom_amount, i.qty, i.plan, start_date, subDoc.current_invoice_end),
                         plans.append(i)
-                        new_invoice = create_invoices(subDoc,prorate,start_date,plans,rate)
+                        new_invoice = create_invoices(subDoc, prorate, start_date, plans, rate[0])
                         if new_invoice:
                             i.custom_is_active = 1
                             subDoc.append("invoices", {"document_type": doctype, "invoice": new_invoice.name})
@@ -63,7 +63,7 @@ def upgrade_plan(doc):
                                              start_date, subDoc.current_invoice_end),
                         plans.append(i)
                         is_return = True
-                        new_invoice = create_invoices(subDoc, prorate, start_date, plans, rate,is_return)
+                        new_invoice = create_invoices(subDoc, prorate, start_date, plans, rate[0], is_return)
                         if new_invoice:
                             i.custom_is_active = 1
                             subDoc.append("invoices", {"document_type": doctype, "invoice": new_invoice.name})
@@ -73,14 +73,13 @@ def upgrade_plan(doc):
 
 
 @frappe.whitelist()
-def create_invoices(doc, prorate,start_date,plans,rate,is_return=None):
-    print('doc--------------------',doc.name)
-    subDoc = frappe.get_doc("Subscription",doc.name)
+def create_invoices(doc, prorate, start_date, plans, rate, is_return=None, is_renewal=None):
+    print('doc--------------------', doc.name)
+    subDoc = frappe.get_doc("Subscription", doc.name)
     """
     Creates a `Invoice`, submits it and returns it
     """
     doctype = "Sales Invoice" if subDoc.party_type == "Customer" else "Purchase Invoice"
-
     invoice = frappe.new_doc(doctype)
     # For backward compatibility
     # Earlier subscription didn't had any company field
@@ -117,13 +116,13 @@ def create_invoices(doc, prorate,start_date,plans,rate,is_return=None):
 
     # Subscription is better suited for service items. I won't update `update_stock`
     # for that reason
-    items_list = get_items_from_plans(subDoc,plans, prorate,rate[0])
+    items_list = get_items_from_plans(subDoc, plans, prorate, rate, is_renewal)
     for item in items_list:
         if is_return:
             item["rate"] = str(abs(item["rate"]))
         item["cost_center"] = subDoc.cost_center
         invoice.append("items", item)
-        print('item--------',item)
+        print('item--------', item)
     # Taxes
     tax_template = ""
 
@@ -164,6 +163,9 @@ def create_invoices(doc, prorate,start_date,plans,rate,is_return=None):
     invoice.from_date = start_date
     invoice.to_date = subDoc.current_invoice_end
 
+    if is_renewal:
+        invoice.custom_is_renewal = 1
+
     invoice.flags.ignore_mandatory = True
     invoice.custom_is_custom = 1
     invoice.set_missing_values()
@@ -171,7 +173,7 @@ def create_invoices(doc, prorate,start_date,plans,rate,is_return=None):
 
     if subDoc.submit_invoice:
         invoice.submit()
-    invoice.custom_is_custom = 1
+
     if is_return:
         new_invoice = make_sales_return(invoice)
         new_invoice.save()
@@ -180,7 +182,7 @@ def create_invoices(doc, prorate,start_date,plans,rate,is_return=None):
     return invoice
 
 @frappe.whitelist()
-def get_items_from_plans(self, plans, prorate=0,rate=0):
+def get_items_from_plans(self, plans, prorate=0, rate=0, is_renewal=None):
     """
     Returns the `Item`s linked to `Subscription Plan`
     """
@@ -193,10 +195,9 @@ def get_items_from_plans(self, plans, prorate=0,rate=0):
     party = self.party
 
     for plan in plans:
-        # if is_renewal:
-        #
-        #     rate = get_plan_rate(plan.plan, plan.qty, party, self.current_invoice_start, self.current_invoice_end)
-        #     print('rate~~~~~~~~~~~~~~',rate)
+        if is_renewal:
+            rate = get_plan_rate(plan.plan, plan.qty, party, self.current_invoice_start, self.current_invoice_end)
+            print('rate~~~~~~~~~~~~~~', rate)
         plan_doc = frappe.get_doc("Subscription Plan", plan.plan)
         item_code = plan_doc.item
 
@@ -211,7 +212,7 @@ def get_items_from_plans(self, plans, prorate=0,rate=0):
             item = {
                 "item_code": item_code,
                 "qty": plan.qty,
-                "rate":rate,
+                "rate": rate,
                 "cost_center": plan_doc.cost_center,
             }
         else:
@@ -243,8 +244,8 @@ def get_items_from_plans(self, plans, prorate=0,rate=0):
 
 
 @frappe.whitelist()
-def get_plan_rates(s_start_date,s_amount,p_amount,p_qty,plan,start_date=None, end_date=None):
-    print('plan -------------',plan)
+def get_plan_rates(s_start_date, s_amount, p_amount, p_qty, plan, start_date=None, end_date=None):
+    print('plan -------------', plan)
     plan = frappe.get_doc("Subscription Plan", plan)
 
     if plan.price_determination == "Fixed Rate":
@@ -252,6 +253,38 @@ def get_plan_rates(s_start_date,s_amount,p_amount,p_qty,plan,start_date=None, en
         cp_no_of_months = relativedelta.relativedelta(end_date, start_date).months + 1
         s_current_amount = (s_amount / s_no_of_months)*cp_no_of_months
         p_current_amount = (p_amount / s_no_of_months)*cp_no_of_months
-        print('s-------------------------p-------------------',s_no_of_months,cp_no_of_months,s_current_amount,p_current_amount)
+        print('s-------------------------p-------------------', s_no_of_months, cp_no_of_months, s_current_amount, p_current_amount)
         rate = (p_current_amount - s_current_amount)/p_qty
         return rate
+
+@frappe.whitelist()
+def send_email(subdoc,invoive):
+    print('subdoc & invoice -------', subdoc, invoive, type(subdoc), type(invoive))
+    try:
+        # Email subject
+        subject = f"Sales Invoice { invoive.name } due date is near"
+
+        # Email body
+        body = f"Dear {subdoc.party},<br><br>"
+        body += f"We would like to notify you that a sales Invoice has been generated in the ERP system. Kindly find the details below:<br>"
+        body += f"<b>Sales Invoice Details:</b><br><br>"
+        body += f"Sales Invoice No: {invoive.name}<br>"
+        body += f"Date: {invoive.posting_date}<br>"
+        body += f"Grand Total: {invoive.grand_total}<br>"
+        body += f"Outstanding Amount: {invoive.outstanding_amount}<br><br>"
+        body += f"Review the information in this Sales Invoice to ensure its accuracy.<br>"
+        body += f"Should you have any inquiries or require further clarification, Thank you for your prompt attention to this matter.<br><br>"
+        body += f"Best regards:<br>"
+        body += f"Accounts Department<br>"
+
+        # Send the email
+        frappe.sendmail(
+            recipients=subdoc.custom_party_email,
+            subject=subject,
+            message=body
+        )
+        frappe.msgprint("Email sent Successfully!")
+        return True
+    except Exception as e:
+        print("Error sending email:", e)
+        raise e
