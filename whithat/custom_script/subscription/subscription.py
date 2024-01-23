@@ -48,26 +48,33 @@ def upgrade_plan(doc):
                         i.custom_is_active = 1
                         subDoc.save()
                         break
-                    elif (i.custom_amount >= s.amount):
+                    # elif (i.custom_amount >= s.amount):
+                    else:
                         start_date = i.custom_subscription_start_date
-                        rate = get_plan_rates(subDoc.current_invoice_start, s.amount, i.custom_amount, i.qty, i.plan, start_date, subDoc.current_invoice_end),
+                        if i.custom_billing_based_on == "Fixed Rate":
+                            rate = (i.custom_cost,)
+                        else:
+                            rate = get_plan_rates(subDoc.current_invoice_start, s.amount, i.custom_amount, i.qty, i.plan, start_date, subDoc.current_invoice_end),
                         plans.append(i)
                         new_invoice = create_invoices(subDoc, prorate, start_date, plans, rate[0])
                         if new_invoice:
                             i.custom_is_active = 1
                             subDoc.append("invoices", {"document_type": doctype, "invoice": new_invoice.name})
                             subDoc.save()
-                    else:
-                        start_date = i.custom_subscription_start_date
-                        rate = get_plan_rates(subDoc.current_invoice_start, s.amount, i.custom_amount, i.qty, i.plan,
-                                             start_date, subDoc.current_invoice_end),
-                        plans.append(i)
-                        is_return = True
-                        new_invoice = create_invoices(subDoc, prorate, start_date, plans, rate[0], is_return)
-                        if new_invoice:
-                            i.custom_is_active = 1
-                            subDoc.append("invoices", {"document_type": doctype, "invoice": new_invoice.name})
-                            subDoc.save()
+                    # else:
+                    #     start_date = i.custom_subscription_start_date
+                    #     if i.custom_billing_based_on == "Fixed Rate":
+                    #         rate = (i.custom_cost,)
+                    #     else:
+                    #         rate = get_plan_rates(subDoc.current_invoice_start, s.amount, i.custom_amount, i.qty, i.plan,
+                    #                          start_date, subDoc.current_invoice_end),
+                    #     plans.append(i)
+                    #     is_return = True
+                    #     new_invoice = create_invoices(subDoc, prorate, start_date, plans, rate[0], is_return)
+                    #     if new_invoice:
+                    #         i.custom_is_active = 1
+                    #         subDoc.append("invoices", {"document_type": doctype, "invoice": new_invoice.name})
+                    #         subDoc.save()
 
 
 
@@ -131,33 +138,6 @@ def create_invoices(doc, prorate, start_date, plans, rate, is_return=None, is_re
     if doctype == "Purchase Invoice" and subDoc.purchase_tax_template:
         tax_template = subDoc.purchase_tax_template
 
-    # if tax_template:
-    #     invoice.taxes_and_charges = tax_template
-    #     invoice.set_taxes()
-
-    # Due date
-    # if subDoc.days_until_due:
-    #     invoice.append(
-    #         "payment_schedule",
-    #         {
-    #             "due_date": add_days(invoice.posting_date, cint(subDoc.days_until_due)),
-    #             "invoice_portion": 100,
-    #         },
-    #     )
-
-    # Discounts
-    # if subDoc.is_trialling():
-    #     invoice.additional_discount_percentage = 100
-    # else:
-    #     if subDoc.additional_discount_percentage:
-    #         invoice.additional_discount_percentage = subDoc.additional_discount_percentage
-    #
-    #     if subDoc.additional_discount_amount:
-    #         invoice.discount_amount = subDoc.additional_discount_amount
-    #
-    #     if subDoc.additional_discount_percentage or subDoc.additional_discount_amount:
-    #         discount_on = subDoc.apply_additional_discount
-    #         invoice.apply_discount_on = discount_on if discount_on else "Grand Total"
 
     # Subscription period
     invoice.from_date = start_date
@@ -249,13 +229,12 @@ def get_plan_rates(s_start_date, s_amount, p_amount, p_qty, plan, start_date=Non
     plan = frappe.get_doc("Subscription Plan", plan)
 
     if plan.price_determination == "Fixed Rate":
+
         s_no_of_months = relativedelta.relativedelta(end_date, s_start_date).months + 1
         cp_no_of_months = relativedelta.relativedelta(end_date, start_date).months + 1
-        s_current_amount = (s_amount / s_no_of_months)*cp_no_of_months
         p_current_amount = (p_amount / s_no_of_months)*cp_no_of_months
-        print('s-------------------------p-------------------', s_no_of_months, cp_no_of_months, s_current_amount, p_current_amount)
-        rate = (p_current_amount - s_current_amount)/p_qty
-        return rate
+        print('s-------------------------p-------------------', s_no_of_months, cp_no_of_months, p_current_amount)
+        return p_current_amount
 
 @frappe.whitelist()
 def send_email(subdoc,invoive):
