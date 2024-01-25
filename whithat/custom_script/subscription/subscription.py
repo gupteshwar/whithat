@@ -56,9 +56,7 @@ def upgrade_plan(doc):
                         i.custom_is_active = 1
                         i.custom_subscription_end_date = subDoc.current_invoice_end
                         subDoc.save()
-
                         break
-                    # elif (i.custom_amount >= s.amount):
                     else:
                         rate = get_plan_rates(subDoc.current_invoice_start,subDoc.current_invoice_end, i.custom_billing_based_on, s.amount, i.custom_amount, i.qty, i.plan, start_date, end_date)
                         plans.append(i)
@@ -71,20 +69,7 @@ def upgrade_plan(doc):
                             subDoc.current_invoice_start = new_invoice.from_date
                             subDoc.current_invoice_end = new_invoice.to_date
                             subDoc.save()
-                    # else:
-                    #     start_date = i.custom_subscription_start_date
-                    #     if i.custom_billing_based_on == "Fixed Rate":
-                    #         rate = (i.custom_cost,)
-                    #     else:
-                    #         rate = get_plan_rates(subDoc.current_invoice_start, s.amount, i.custom_amount, i.qty, i.plan,
-                    #                          start_date, subDoc.current_invoice_end),
-                    #     plans.append(i)
-                    #     is_return = True
-                    #     new_invoice = create_invoices(subDoc, prorate, start_date, plans, rate[0], is_return)
-                    #     if new_invoice:
-                    #         i.custom_is_active = 1
-                    #         subDoc.append("invoices", {"document_type": doctype, "invoice": new_invoice.name})
-                    #         subDoc.save()
+
 
 
 
@@ -246,17 +231,20 @@ def get_plan_rates(s_start_date,sp_end_date, billing_based_on, s_amount, p_amoun
         if billing_based_on == "Fixed Rate":
             rate = plan.cost / p_qty
         elif billing_based_on == "Prorate":
-            s_no_of_months = relativedelta.relativedelta(sp_end_date, s_start_date).months + 1
-            cp_no_of_months = relativedelta.relativedelta(end_date, start_date).months + 1
-            p_current_amount = (p_amount / s_no_of_months)*cp_no_of_months
-            print('s-------------------------p-------------------', s_no_of_months, cp_no_of_months, p_current_amount)
+            # s_no_of_months = relativedelta.relativedelta(sp_end_date, s_start_date).months + 1
+            s_no_of_day = date_diff(sp_end_date, s_start_date)
+            # cp_no_of_months = relativedelta.relativedelta(end_date, start_date).months + 1
+            cp_no_of_day = date_diff(end_date, start_date)
+
+            p_current_amount = (p_amount / s_no_of_day)*cp_no_of_day
+            print('s-------------------------p-------------------', s_no_of_day, cp_no_of_day, p_current_amount)
             rate = p_current_amount / p_qty
         elif billing_based_on == "Upgrade" or billing_based_on == "Downgrade":
-            s_no_of_months = relativedelta.relativedelta(end_date, s_start_date).months + 1
-            cp_no_of_months = relativedelta.relativedelta(end_date, start_date).months + 1
-            s_current_amount = (s_amount / s_no_of_months) * cp_no_of_months
-            p_current_amount = (p_amount / s_no_of_months) * cp_no_of_months
-            print('s-------------------------p-------------------', s_no_of_months, cp_no_of_months, s_current_amount,
+            s_no_of_day = date_diff(sp_end_date, s_start_date)
+            cp_no_of_day = date_diff(end_date, start_date)
+            s_current_amount = (s_amount / s_no_of_day) * cp_no_of_day
+            p_current_amount = (p_amount / s_no_of_day) * cp_no_of_day
+            print('s-------------------------p-------------------', s_no_of_day, cp_no_of_day, s_current_amount,
                   p_current_amount)
             rate = (p_current_amount - s_current_amount) / p_qty
 
