@@ -58,7 +58,7 @@ def upgrade_plan(doc):
                         subDoc.save()
                         break
                     else:
-                        rate = get_plan_rates(subDoc.current_invoice_start,subDoc.current_invoice_end, i.custom_billing_based_on, s.amount, i.custom_amount, i.qty, i.plan, start_date, end_date)
+                        rate = get_plan_rates(subDoc, subDoc.current_invoice_start,subDoc.current_invoice_end, i.custom_billing_based_on, s.amount, i.custom_amount, i.qty, i.plan, start_date, end_date)
                         plans.append(i)
                         if i.custom_billing_based_on == "Downgrade":
                             is_return = True
@@ -133,6 +133,32 @@ def create_invoices(doc, prorate, start_date, end_date, plans, rate, is_return=N
     if doctype == "Purchase Invoice" and subDoc.purchase_tax_template:
         tax_template = subDoc.purchase_tax_template
 
+    if tax_template:
+        invoice.taxes_and_charges = tax_template
+        invoice.set_taxes()
+    # Due date
+    if subDoc.days_until_due:
+        invoice.append(
+            "payment_schedule",
+            {
+                "due_date": add_days(invoice.posting_date, cint(subDoc.days_until_due)),
+                "invoice_portion": 100,
+            },
+        )
+
+    # Discounts
+    if subDoc.is_trialling():
+        invoice.additional_discount_percentage = 100
+    else:
+        if subDoc.additional_discount_percentage:
+            invoice.additional_discount_percentage = subDoc.additional_discount_percentage
+
+        if subDoc.additional_discount_amount:
+            invoice.discount_amount = subDoc.additional_discount_amount
+
+        if subDoc.additional_discount_percentage or subDoc.additional_discount_amount:
+            discount_on = subDoc.apply_additional_discount
+            invoice.apply_discount_on = discount_on if discount_on else "Grand Total"
 
     # Subscription period
     invoice.from_date = start_date
@@ -223,35 +249,48 @@ def get_items_from_plans(self, plans, prorate=0, rate=0, is_renewal=None):
 
 
 @frappe.whitelist()
-def get_plan_rates(s_start_date,sp_end_date, billing_based_on, s_amount, p_amount, p_qty, plan, start_date=None, end_date=None):
+def get_plan_rates(subDoc, s_start_date, sp_end_date, billing_based_on, s_amount, p_amount, p_qty, plan, start_date=None, end_date=None):
     print('plan -------------', plan)
     plan = frappe.get_doc("Subscription Plan", plan)
+    if billing_based_on == "Fixed Rate":
+        rate = p_amount / p_qty
+        return rate
 
-    if plan.price_determination == "Fixed Rate":
-        if billing_based_on == "Fixed Rate":
-            rate = plan.cost / p_qty
-        elif billing_based_on == "Prorate":
-            # s_no_of_months = relativedelta.relativedelta(sp_end_date, s_start_date).months + 1
-            s_no_of_day = date_diff(sp_end_date, s_start_date)
-            # cp_no_of_months = relativedelta.relativedelta(end_date, start_date).months + 1
-            cp_no_of_day = date_diff(end_date, start_date)
+    elif billing_based_on == "Prorate":
+        _current_invoice_start = Subscription.get_current_invoice_start(subDoc, start_date)
+        _current_invoice_end = Subscription.get_current_invoice_end(subDoc, _current_invoice_start)
+        s_no_of_day = date_diff(_current_invoice_end, _current_invoice_start)
+        cp_no_of_day = date_diff(end_date, start_date)
 
-            p_current_amount = (p_amount / s_no_of_day)*cp_no_of_day
-            print('s-------------------------p-------------------', s_no_of_day, cp_no_of_day, p_current_amount)
-            rate = p_current_amount / p_qty
-        elif billing_based_on == "Upgrade" or billing_based_on == "Downgrade":
-            s_no_of_day = date_diff(sp_end_date, s_start_date)
-            cp_no_of_day = date_diff(end_date, start_date)
-            s_current_amount = (s_amount / s_no_of_day) * cp_no_of_day
-            p_current_amount = (p_amount / s_no_of_day) * cp_no_of_day
-            print('s-------------------------p-------------------', s_no_of_day, cp_no_of_day, s_current_amount,
-                  p_current_amount)
-            rate = (p_current_amount - s_current_amount) / p_qty
+        p_current_amount = (p_amount / s_no_of_day)*cp_no_of_day
+        print('s-------------------------p-------------------', s_no_of_day, cp_no_of_day, p_current_amount)
+        rate = p_current_amount / p_qty
+        return rate
 
-    return rate
+    elif billing_based_on == "Upgrade" or billing_based_on == "Downgrade":
+        s_no_of_day = date_diff(sp_end_date, s_start_date)
+        cp_no_of_day = date_diff(end_date, start_date)
+        s_current_amount = (s_amount / s_no_of_day) * cp_no_of_day
+        p_current_amount = (p_amount / s_no_of_day) * cp_no_of_day
+        print('s-------------------------p-------------------', s_no_of_day, cp_no_of_day, s_current_amount,
+              p_current_amount)
+        rate = (p_current_amount - s_current_amount) / p_qty
+        return rate
+
 
 @frappe.whitelist()
-def send_email(subdoc,invoive):
+def get_price_list(plan, customer=None):
+    plan = frappe.get_doc("Subscription Plan", plan)
+    if plan.price_determination == "Fixed Rate":
+        return plan.cost
+    if plan.price_determination == "Based On Price List":
+        ItemPrice = frappe.get_all('Item Price', filters={'item_code': plan.item, 'price_list': plan.price_list})
+        price = ItemPrice[0]
+        priceDoc = frappe.get_doc('Item Price', price['name'])
+        return priceDoc.price_list_rate
+
+@frappe.whitelist()
+def send_email(subdoc, invoive):
     print('subdoc & invoice -------', subdoc, invoive, type(subdoc), type(invoive))
     try:
         # Email subject
