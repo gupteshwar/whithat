@@ -60,7 +60,7 @@ def upgrade_plan(doc):
                     else:
                         rate = get_plan_rates(subDoc, subDoc.current_invoice_start,subDoc.current_invoice_end, i.custom_billing_based_on, s.amount, i.custom_amount, i.qty, i.plan, start_date, end_date)
                         plans.append(i)
-                        if i.custom_billing_based_on == "Downgrade":
+                        if i.custom_billing_based_on == "Downgrade with Fix Rate" or i.custom_billing_based_on == "Downgrade with Prorate":
                             is_return = True
                         new_invoice = create_invoices(subDoc, prorate, start_date, end_date, plans, rate, is_return)
                         if new_invoice:
@@ -267,7 +267,7 @@ def get_plan_rates(subDoc, s_start_date, sp_end_date, billing_based_on, s_amount
         rate = p_current_amount / p_qty
         return rate
 
-    elif billing_based_on == "Upgrade" or billing_based_on == "Downgrade":
+    elif billing_based_on == "Upgrade with Prorate" or billing_based_on == "Downgrade with Prorate":
         s_no_of_day = date_diff(sp_end_date, s_start_date)
         cp_no_of_day = date_diff(end_date, start_date)
         s_current_amount = (s_amount / s_no_of_day) * cp_no_of_day
@@ -275,6 +275,14 @@ def get_plan_rates(subDoc, s_start_date, sp_end_date, billing_based_on, s_amount
         print('s-------------------------p-------------------', s_no_of_day, cp_no_of_day, s_current_amount,
               p_current_amount)
         rate = (p_current_amount - s_current_amount) / p_qty
+        return rate
+    elif billing_based_on == "Upgrade with Fix Rate" or billing_based_on == "Downgrade with Fix Rate":
+        s_no_of_day = date_diff(sp_end_date, s_start_date)
+        cp_no_of_day = date_diff(end_date, start_date)
+        s_current_amount = (s_amount / s_no_of_day) * cp_no_of_day
+        print('s-------------------------p-------------------', s_no_of_day, cp_no_of_day, s_current_amount,
+              p_amount)
+        rate = (p_amount - s_current_amount) / p_qty
         return rate
 
 
