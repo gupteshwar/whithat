@@ -26,13 +26,15 @@ def upgrade_plan(doc):
     doctype = "Sales Invoice" if subDoc.party_type == "Customer" else "Purchase Invoice"
     invoice = Subscription.get_current_invoice(subDoc)
     prorate = frappe.db.get_single_value("Subscription Settings", "prorate")
-    si_doc = frappe.get_doc('Sales Invoice',invoice.name)
+    si_doc = False
+    if invoice:
+        si_doc = frappe.get_doc('Sales Invoice', invoice.name)
     # Check if auto-renewal is enabled and it's time to generate the invoice
     if subDoc.custom_is_auto_renewal == 1 and date.today() < subDoc.end_date \
             and date_diff(subDoc.end_date, date.today()) == int(subDoc.custom_generate_invoice_before_days) and invoice.custom_is_renewal !=1:
         print('date diff-----------', date_diff(subDoc.end_date, date.today()))
         is_renewal = True
-        new_invoice = create_invoices(subDoc, prorate, date.today(),subDoc.plans, 0, False, is_renewal)
+        new_invoice = create_invoices(subDoc, prorate, date.today(), subDoc.plans, 0, False, is_renewal)
 
         if new_invoice:
             subDoc.append("invoices", {"document_type": "Sales Invoice", "invoice": new_invoice.name})
@@ -69,13 +71,18 @@ def upgrade_plan(doc):
                             subDoc.current_invoice_start = new_invoice.from_date
                             subDoc.current_invoice_end = new_invoice.to_date
                             subDoc.save()
-
+    else:
+        new_invoice = create_invoices(subDoc, prorate, subDoc.current_invoice_start, subDoc.current_invoice_end, subDoc.plans, 0, False, False, True)
+        if new_invoice:
+            subDoc.append("invoices", {"document_type": "Sales Invoice", "invoice": new_invoice.name})
+            subDoc.save()
+            send_email(subDoc, new_invoice)
 
 
 
 
 @frappe.whitelist()
-def create_invoices(doc, prorate, start_date, end_date, plans, rate, is_return=None, is_renewal=None):
+def create_invoices(doc, prorate, start_date, end_date, plans, rate, is_return=None, is_renewal=None, is_new=None):
     print('doc--------------------', doc.name)
     subDoc = frappe.get_doc("Subscription", doc.name)
     """
@@ -118,7 +125,7 @@ def create_invoices(doc, prorate, start_date, end_date, plans, rate, is_return=N
 
     # Subscription is better suited for service items. I won't update `update_stock`
     # for that reason
-    items_list = get_items_from_plans(subDoc, plans, prorate, rate, is_renewal)
+    items_list = get_items_from_plans(subDoc, plans, prorate, rate, is_renewal, is_new)
     for item in items_list:
         if is_return:
             item["rate"] = str(abs(item["rate"]))
@@ -177,17 +184,16 @@ def create_invoices(doc, prorate, start_date, end_date, plans, rate, is_return=N
 
     if is_return:
         invoice.submit()
-        new_invoice = make_sales_return(invoice)
+        print('invoice return -----', invoice.name)
+        new_invoice = make_sales_return(invoice.name)
         new_invoice.from_date = start_date
         new_invoice.to_date = end_date
         new_invoice.save()
-
-        # new_invoice.submit()
         return new_invoice
     return invoice
 
 @frappe.whitelist()
-def get_items_from_plans(self, plans, prorate=0, rate=0, is_renewal=None):
+def get_items_from_plans(self, plans, prorate=0, rate=0, is_renewal=None, is_new=None):
     """
     Returns the `Item`s linked to `Subscription Plan`
     """
@@ -200,7 +206,7 @@ def get_items_from_plans(self, plans, prorate=0, rate=0, is_renewal=None):
     party = self.party
 
     for plan in plans:
-        if is_renewal:
+        if is_renewal or is_new:
             rate = get_plan_rate(plan.plan, plan.qty, party, self.current_invoice_start, self.current_invoice_end)
             print('rate~~~~~~~~~~~~~~', rate)
         plan_doc = frappe.get_doc("Subscription Plan", plan.plan)
@@ -328,3 +334,59 @@ def send_email(subdoc, invoive):
     except Exception as e:
         print("Error sending email:", e)
         raise e
+@frappe.whitelist()
+def price_alteration(doc, new_price):
+    ItemPrice = frappe.get_doc('Item Price', doc)
+    print('price_list_rate ------', ItemPrice.price_list_rate, new_price)
+    is_return = False
+
+    Sub_Plan = frappe.get_all(
+        'Subscription Plan',
+         filters={'item': ItemPrice.item_code, 'price_list': ItemPrice.price_list},
+         fields=['name', 'item']
+    )
+    for plan in Sub_Plan:
+        subscription = frappe.get_all('Subscription Plan Detail',
+                                      filters={'plan': plan['name']},
+                                      fields=['parent', 'plan', 'custom_cost', 'qty', 'custom_amount', 'custom_subscription_start_date',
+                                              'custom_subscription_end_date',],
+                                      )
+        print('sub-len ---', len(subscription))
+        if subscription:
+            for sub in subscription:
+                subDoc = frappe.get_doc('Subscription', sub['parent'])
+                print('sub-doc ---------', subDoc)
+                invoice = Subscription.get_current_invoice(subDoc)
+                prorate = frappe.db.get_single_value("Subscription Settings", "prorate")
+                si_doc = frappe.get_doc('Sales Invoice', invoice.name)
+                if si_doc:
+                    print('sidoc -----', si_doc)
+                    for s in si_doc.items:
+                        plans = []
+                        if s.item_code == plan['item'] and sub['custom_subscription_start_date'] == si_doc.posting_date:
+                            new_amount = float(new_price) * float(sub['qty'])
+                            print('new amount ------------', new_amount)
+                            if s.amount < float(new_amount) and s.amount != float(new_amount):
+                                custom_billing_based_on = 'Upgrade with Prorate'
+                            if s.amount > float(new_amount) and s.amount != float(new_amount):
+                                custom_billing_based_on = 'Downgrade with Prorate'
+                                is_return = True
+
+
+                            rate = get_plan_rates(subDoc, subDoc.current_invoice_start, subDoc.current_invoice_end,
+                                                  custom_billing_based_on, s.amount, float(new_amount), sub['qty'],
+                                                  sub['plan'], date.today(), sub['custom_subscription_end_date'])
+                            plans.append(sub)
+                            end_date = sub['custom_subscription_end_date']
+                            new_invoice = create_invoices(subDoc, prorate, date.today(), end_date, plans, rate,
+                                                          is_return)
+                            if new_invoice:
+                                subDoc.append("invoices", {"document_type": 'Sales Invoice', "invoice": new_invoice.name})
+                                subDoc.current_invoice_start = new_invoice.from_date
+                                subDoc.current_invoice_end = new_invoice.to_date
+                                subDoc.save()
+
+
+
+
+

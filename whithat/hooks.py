@@ -12,6 +12,7 @@ app_license = "MIT"
 
 doctype_js = {
     "Subscription": "public/js/subscription.js",
+    "Item Price": "public/js/item_price.js",
 }
 
 
