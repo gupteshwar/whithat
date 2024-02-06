@@ -76,8 +76,6 @@ def upgrade_plan(doc):
         if new_invoice:
             subDoc.append("invoices", {"document_type": "Sales Invoice", "invoice": new_invoice.name})
             subDoc.save()
-            send_email(subDoc, new_invoice)
-
 
 
 
@@ -183,8 +181,9 @@ def create_invoices(doc, prorate, start_date, end_date, plans, rate, is_return=N
         invoice.submit()
 
     if is_return:
-        invoice.submit()
-        print('invoice return -----', invoice.name)
+        if not subDoc.submit_invoice:
+            invoice.submit()
+        print('invoice return -----', invoice.name, type(invoice))
         new_invoice = make_sales_return(invoice.name)
         new_invoice.from_date = start_date
         new_invoice.to_date = end_date
