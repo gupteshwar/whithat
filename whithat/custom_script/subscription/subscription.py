@@ -25,9 +25,10 @@ def upgrade_plan(doc):
     subDoc = frappe.get_doc("Subscription", data['name'])
     doctype = "Sales Invoice" if subDoc.party_type == "Customer" else "Purchase Invoice"
     invoice = Subscription.get_current_invoice(subDoc)
+    print('previous invoice ---------', invoice, type(invoice))
     prorate = frappe.db.get_single_value("Subscription Settings", "prorate")
-    si_doc = False
-    if invoice:
+    si_doc = ""
+    if invoice and hasattr(invoice, 'name'):
         si_doc = frappe.get_doc('Sales Invoice', invoice.name)
     # Check if auto-renewal is enabled and it's time to generate the invoice
     if subDoc.custom_is_auto_renewal == 1 and date.today() < subDoc.end_date \
@@ -60,9 +61,9 @@ def upgrade_plan(doc):
                         subDoc.save()
                         break
                     else:
-                        rate = get_plan_rates(subDoc, subDoc.current_invoice_start,subDoc.current_invoice_end, i.custom_billing_based_on, s.amount, i.custom_amount, i.qty, i.plan, start_date, end_date)
+                        rate = get_plan_rates(subDoc, subDoc.current_invoice_start, subDoc.current_invoice_end, i.custom_billing_based_on, s.amount, i.custom_amount, i.qty, i.plan, start_date, end_date)
                         plans.append(i)
-                        if i.custom_billing_based_on == "Downgrade with Fix Rate" or i.custom_billing_based_on == "Downgrade with Prorate":
+                        if (i.custom_billing_based_on == "Downgrade with Fix Rate") or (i.custom_billing_based_on == "Downgrade with Prorate"):
                             is_return = True
                         new_invoice = create_invoices(subDoc, prorate, start_date, end_date, plans, rate, is_return)
                         if new_invoice:
@@ -178,10 +179,12 @@ def create_invoices(doc, prorate, start_date, end_date, plans, rate, is_return=N
     invoice.save()
 
     if subDoc.submit_invoice:
+        print('subDoc.submit_invoice----', subDoc.submit_invoice)
         invoice.submit()
 
     if is_return:
-        if not subDoc.submit_invoice:
+        if subDoc.submit_invoice != 1:
+            print('not subDoc.submit_invoice----', subDoc.submit_invoice)
             invoice.submit()
         print('invoice return -----', invoice.name, type(invoice))
         new_invoice = make_sales_return(invoice.name)
@@ -353,11 +356,13 @@ def price_alteration(doc, new_price):
         print('sub-len ---', len(subscription))
         if subscription:
             for sub in subscription:
+                si_doc = ""
                 subDoc = frappe.get_doc('Subscription', sub['parent'])
                 print('sub-doc ---------', subDoc)
                 invoice = Subscription.get_current_invoice(subDoc)
                 prorate = frappe.db.get_single_value("Subscription Settings", "prorate")
-                si_doc = frappe.get_doc('Sales Invoice', invoice.name)
+                if invoice and hasattr(invoice, 'name'):
+                    si_doc = frappe.get_doc('Sales Invoice', invoice.name)
                 if si_doc:
                     print('sidoc -----', si_doc)
                     for s in si_doc.items:
