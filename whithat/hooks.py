@@ -140,9 +140,9 @@ fixtures = [
 scheduler_events = {
     'cron': {
         '0 8 * * *': [
-            'whithat.custom_script.subscription.subscription.upgrade_plan'
+            'whithat.custom_script.subscription.subscription.cron_upgrade_plan'
         ],
-        '30 17 * * *': [
+        '0 8 * * *': [
             'whithat.custom_script.subscription.subscription.cron_price_alteration'
         ],
     },

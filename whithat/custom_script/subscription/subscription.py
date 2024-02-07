@@ -21,26 +21,43 @@ from frappe.utils.data import get_datetime
 
 @frappe.whitelist()
 def upgrade_plan(doc):
+
     data = frappe.parse_json(doc)
     subDoc = frappe.get_doc("Subscription", data['name'])
+
+    print('date diff-----------', date_diff(subDoc.current_invoice_end, date.today()))
+
+
     doctype = "Sales Invoice" if subDoc.party_type == "Customer" else "Purchase Invoice"
     invoice = Subscription.get_current_invoice(subDoc)
+    sales_order = get_current_sales_order(subDoc)
     print('previous invoice ---------', invoice, type(invoice))
     prorate = frappe.db.get_single_value("Subscription Settings", "prorate")
     si_doc = ""
     if invoice and hasattr(invoice, 'name'):
         si_doc = frappe.get_doc('Sales Invoice', invoice.name)
     # Check if auto-renewal is enabled and it's time to generate the invoice
-    if subDoc.custom_is_auto_renewal == 1 and date.today() < subDoc.end_date \
-            and date_diff(subDoc.end_date, date.today()) == int(subDoc.custom_generate_invoice_before_days) and invoice.custom_is_renewal !=1:
-        print('date diff-----------', date_diff(subDoc.end_date, date.today()))
-        is_renewal = True
-        new_invoice = create_invoices(subDoc, prorate, date.today(), subDoc.plans, 0, False, is_renewal)
+    if subDoc.custom_is_auto_renewal == 1 and date.today() < subDoc.current_invoice_end \
+            and date_diff(subDoc.current_invoice_end, date.today()) == int(subDoc.custom_generate_invoice_before_days):
+            print('date diff-----------', date_diff(subDoc.current_invoice_end, date.today()))
+            is_renewal = True
+            Do_renewal = check_for_renewal(invoice, sales_order, subDoc.custom_renewal_for_)
 
-        if new_invoice:
-            subDoc.append("invoices", {"document_type": "Sales Invoice", "invoice": new_invoice.name})
-            subDoc.save()
-            send_email(subDoc, new_invoice)
+            if subDoc.custom_renewal_for_ == "Sales Invoice" and Do_renewal:
+                new_invoice = create_invoices(subDoc, prorate, date.today(), subDoc.current_invoice_end, subDoc.plans,
+                                              0, False,is_renewal)
+                if new_invoice:
+                    subDoc.append("invoices", {"document_type": "Sales Invoice", "invoice": new_invoice.name})
+                    subDoc.save()
+                    send_email(subDoc, new_invoice, False)
+            if subDoc.custom_renewal_for_ == "Sales Order" and Do_renewal:
+                new_sales_order = create_sales_order(subDoc, prorate, date.today(), subDoc.current_invoice_end,
+                                                     subDoc.plans, 0,False, is_renewal)
+
+                if new_sales_order:
+                    subDoc.append("custom_sales_orders", {"sales_order": new_sales_order.name})
+                    subDoc.save()
+                    send_email(subDoc, False, new_sales_order)
     elif si_doc:
         for i in subDoc.plans:
             if not i.custom_is_active:
@@ -329,24 +346,43 @@ def get_price_list(plan, customer=None):
             return price.price_list_rate
 
 @frappe.whitelist()
-def send_email(subdoc, invoive):
+def send_email(subdoc, invoive=None, sales_order=None):
     print('subdoc & invoice -------', subdoc, invoive, type(subdoc), type(invoive))
     try:
-        # Email subject
-        subject = f"Sales Invoice { invoive.name } due date is near"
+        if invoive:
+            # Email subject
+            subject = f"Sales Invoice { invoive.name } due date is near"
 
-        # Email body
-        body = f"Dear {subdoc.party},<br><br>"
-        body += f"We would like to notify you that a sales Invoice has been generated in the ERP system. Kindly find the details below:<br>"
-        body += f"<b>Sales Invoice Details:</b><br><br>"
-        body += f"Sales Invoice No: {invoive.name}<br>"
-        body += f"Date: {invoive.posting_date}<br>"
-        body += f"Grand Total: {invoive.grand_total}<br>"
-        body += f"Outstanding Amount: {invoive.outstanding_amount}<br><br>"
-        body += f"Review the information in this Sales Invoice to ensure its accuracy.<br>"
-        body += f"Should you have any inquiries or require further clarification, Thank you for your prompt attention to this matter.<br><br>"
-        body += f"Best regards:<br>"
-        body += f"Accounts Department<br>"
+            # Email body
+            body = f"Dear {subdoc.party},<br><br>"
+            body += f"We would like to notify you that a sales Invoice has been generated in the ERP system. Kindly find the details below:<br>"
+            body += f"<b>Sales Invoice Details:</b><br><br>"
+            body += f"Sales Invoice No: {invoive.name}<br>"
+            body += f"Date: {invoive.posting_date}<br>"
+            body += f"Grand Total: {invoive.grand_total}<br>"
+            body += f"Outstanding Amount: {invoive.outstanding_amount}<br><br>"
+            body += f"Review the information in this Sales Invoice to ensure its accuracy.<br>"
+            body += f"Should you have any inquiries or require further clarification, Thank you for your prompt attention to this matter.<br><br>"
+            body += f"Best regards:<br>"
+            body += f"Accounts Department<br>"
+        if sales_order:
+            # Email subject
+            subject = f"Sales Order {sales_order.name} due date is near"
+
+            # Email body
+            body = f"Dear {subdoc.party},<br><br>"
+            body += (f"We would like to notify you that a Sales Order has been generated as current subscription will"
+                     f" expire in next {subdoc.custom_generate_invoice_before_days} days. Kindly find the details below:<br>")
+            body += f"<b>Sales Order Details:</b><br><br>"
+            body += f"Sales Order No: {sales_order.name}<br>"
+            body += f"Date: {sales_order.transaction_date}<br>"
+            body += f"Grand Total: {sales_order.grand_total}<br>"
+            body += f"Review the information in this Sales Order to ensure its accuracy.<br>"
+            body += f"Should you have any inquiries or require further clarification, Thank you for your prompt attention to this matter.<br><br>"
+            body += f"Best regards:<br>"
+            body += f"Accounts Department<br>"
+
+
 
         # Send the email
         frappe.sendmail(
@@ -436,3 +472,126 @@ def cron_price_alteration():
     for ip_doc in ItemPrice:
         if ip_doc.valid_from == date.today():
             price_alteration(ip_doc.name, ip_doc.price_list_rate, ip_doc.valid_from)
+
+@frappe.whitelist()
+def cron_upgrade_plan():
+    subscription = frappe.get_all('Subscription')
+    for sub in subscription:
+        upgrade_plan(sub.name)
+@frappe.whitelist()
+def create_sales_order(doc, prorate, start_date, end_date, plans, rate, is_return=None, is_renewal=None, is_new=None):
+    print('doc--------------------', doc.name)
+    subDoc = frappe.get_doc("Subscription", doc.name)
+    """
+    Creates a `Invoice`, submits it and returns it
+    """
+    doctype = "Sales Order"
+    Sales_Order = frappe.new_doc(doctype)
+    # For backward compatibility
+    # Earlier subscription didn't had any company field
+    company = subDoc.get("company") or Subscription.get_default_company()
+    if not company:
+        frappe.throw(
+            _("Company is mandatory was generating invoice. Please set default company in Global Defaults")
+        )
+    Sales_Order.cost_center = subDoc.cost_center
+
+    Sales_Order.company = company
+    Sales_Order.transaction_date = (
+        start_date
+    )
+    date_after_5_days = add_days(start_date, 5)
+    Sales_Order.delivery_date = date_after_5_days
+    Sales_Order.customer = subDoc.party
+
+    ### Add party currency to sales order
+    Sales_Order.currency = get_party_account_currency(subDoc.party_type, subDoc.party, subDoc.company)
+
+    ## Add dimensions in invoice for subscription:
+    accounting_dimensions = get_accounting_dimensions()
+
+    for dimension in accounting_dimensions:
+        if subDoc.get(dimension):
+            Sales_Order.update({dimension: subDoc.get(dimension)})
+
+    # Subscription is better suited for service items. I won't update `update_stock`
+    # for that reason
+    items_list = get_items_from_plans(subDoc, plans, prorate, rate, is_renewal, is_new)
+    for item in items_list:
+        item["cost_center"] = subDoc.cost_center
+        Sales_Order.append("items", item)
+        print('item--------', item)
+    # Taxes
+    tax_template = ""
+
+    if subDoc.sales_tax_template:
+        tax_template = subDoc.sales_tax_template
+
+    if tax_template:
+        Sales_Order.taxes_and_charges = tax_template
+        Sales_Order.set_taxes()
+    # Due date
+    if subDoc.days_until_due:
+        Sales_Order.append(
+            "payment_schedule",
+            {
+                "due_date": add_days(Sales_Order.transaction_date, cint(subDoc.days_until_due)),
+                "invoice_portion": 100,
+            },
+        )
+
+    # Discounts
+    if subDoc.is_trialling():
+        Sales_Order.additional_discount_percentage = 100
+    else:
+        if subDoc.additional_discount_percentage:
+            Sales_Order.additional_discount_percentage = subDoc.additional_discount_percentage
+
+        if subDoc.additional_discount_amount:
+            Sales_Order.discount_amount = subDoc.additional_discount_amount
+
+        if subDoc.additional_discount_percentage or subDoc.additional_discount_amount:
+            discount_on = subDoc.apply_additional_discount
+            Sales_Order.apply_discount_on = discount_on if discount_on else "Grand Total"
+
+    Sales_Order.flags.ignore_mandatory = True
+    Sales_Order.set_missing_values()
+    Sales_Order.save()
+
+    if subDoc.custom_submit_sales_order_automatically:
+        Sales_Order.submit()
+
+    return Sales_Order
+
+@frappe.whitelist()
+def get_current_sales_order(doc):
+    """
+    Returns the most recent generated sales order.
+    """
+    doctype = "Sales Order"
+
+    if len(doc.custom_sales_orders):
+        current = doc.custom_sales_orders[-1]
+        if frappe.db.exists(doctype, current.get("sales_order")):
+            doc = frappe.get_doc(doctype, current.get("sales_order"))
+            return doc
+        else:
+            frappe.throw(_("Invoice {0} no longer exists").format(current.get("sales_order")))
+
+@frappe.whitelist()
+def check_for_renewal(invoice, sales_order, renewal_for):
+    """ check for renewal """
+    today_date = date.today()
+    if renewal_for == "Sales Order":
+        if sales_order:
+            if today_date != sales_order.transaction_date:
+                return True
+        else:
+            return True
+    if renewal_for == "Sales Invoice":
+        if invoice:
+            if today_date != invoice.posting_date:
+                return True
+        else:
+            return True
+
