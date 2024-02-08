@@ -320,12 +320,12 @@ def get_plan_rates(subDoc, s_start_date, sp_end_date, billing_based_on, s_amount
 
 @frappe.whitelist()
 def get_price_list(plan, customer):
-    plan = frappe.get_doc("Subscription Plan", plan)
-    if plan.price_determination == "Fixed Rate":
-        return plan.cost
-    if plan.price_determination == "Based On Price List":
+    plans = frappe.get_doc("Subscription Plan", plan)
+    if plans.price_determination == "Fixed Rate":
+        return plans.cost
+    if plans.price_determination == "Based On Price List":
         price = []
-        item_prices = frappe.get_all('Item Price', filters={'item_code': plan.item, 'price_list': plan.price_list})
+        item_prices = frappe.get_all('Item Price', filters={'item_code': plans.item, 'price_list': plans.price_list})
 
         for item_price_data in item_prices:
             print('Item Price -------------', item_price_data.name, customer, item_price_data.customer)
