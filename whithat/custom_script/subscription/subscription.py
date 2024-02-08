@@ -10,8 +10,8 @@ from erpnext.accounts.doctype.accounting_dimension.accounting_dimension import (
 from frappe.utils.data import (
 	add_days,
 	cint,
+    fmt_money
 )
-from erpnext.utilities.product import get_price
 from frappe.utils import date_diff, flt, get_first_day, get_last_day, getdate
 from dateutil import relativedelta
 from erpnext.accounts.doctype.sales_invoice.sales_invoice import make_sales_return
@@ -89,12 +89,12 @@ def upgrade_plan(doc):
                             subDoc.current_invoice_start = new_invoice.from_date
                             subDoc.current_invoice_end = new_invoice.to_date
                             subDoc.save()
-    # else:
-    #     new_invoice = create_invoices(subDoc, prorate, subDoc.current_invoice_start, subDoc.current_invoice_end, subDoc.plans, 0, False, False, True)
-    #     if new_invoice:
-    #
-    #         subDoc.append("invoices", {"document_type": "Sales Invoice", "invoice": new_invoice.name})
-    #         subDoc.save()
+    else:
+        new_invoice = create_invoices(subDoc, prorate, subDoc.current_invoice_start, subDoc.current_invoice_end, subDoc.plans, 0, False, False, True)
+        if new_invoice:
+
+            subDoc.append("invoices", {"document_type": "Sales Invoice", "invoice": new_invoice.name})
+            subDoc.save()
 
 
 
@@ -227,7 +227,7 @@ def get_items_from_plans(self, plans, prorate=0, rate=0, is_renewal=None, is_new
 
     for plan in plans:
         if is_renewal or is_new:
-            rate = get_plan_rate(plan.plan, plan.qty, party, self.current_invoice_start, self.current_invoice_end)
+            rate = get_plan_rate_for_new(plan.plan, plan.qty, party, self.current_invoice_start, self.current_invoice_end)
             print('rate~~~~~~~~~~~~~~', rate)
         plan_doc = frappe.get_doc("Subscription Plan", plan.plan)
         item_code = plan_doc.item
@@ -319,31 +319,34 @@ def get_plan_rates(subDoc, s_start_date, sp_end_date, billing_based_on, s_amount
 
 
 @frappe.whitelist()
-def get_price_list(plan, customer=None):
+def get_price_list(plan, customer):
     plan = frappe.get_doc("Subscription Plan", plan)
     if plan.price_determination == "Fixed Rate":
         return plan.cost
     if plan.price_determination == "Based On Price List":
-        # ItemPrice = frappe.get_all('Item Price', filters={'item_code': plan.item, 'price_list': plan.price_list})
-        # price = ItemPrice[0]
-        # priceDoc = frappe.get_doc('Item Price', price['name'])
-        # return priceDoc.price_list_rate
-        if customer:
-            customer_group = frappe.db.get_value("Customer", customer, "customer_group")
-        else:
-            customer_group = None
+        price = []
+        item_prices = frappe.get_all('Item Price', filters={'item_code': plan.item, 'price_list': plan.price_list})
 
-        price = get_price(
-            item_code=plan.item,
-            price_list=plan.price_list,
-            customer_group=customer_group,
-            company=None,
-            qty=1,
-        )
-        if not price:
-            return 0
+        for item_price_data in item_prices:
+            print('Item Price -------------', item_price_data.name, customer, item_price_data.customer)
+            item_price_doc = frappe.get_doc('Item Price', item_price_data['name'])
+
+            item_price_customer = item_price_doc.customer if hasattr(item_price_doc, 'customer') else None
+
+            if item_price_customer == customer:
+                price.append(item_price_doc)
+
+        print('Price List ------------', item_prices, price)
+
+        if price:
+            print("---- In price ----")
+            p = price[0]
+            return p.price_list_rate
         else:
-            return price.price_list_rate
+            Price = item_prices[0]
+            price_doc = frappe.get_doc('Item Price', Price['name'])
+            return price_doc.price_list_rate
+
 
 @frappe.whitelist()
 def send_email(subdoc, invoive=None, sales_order=None):
@@ -595,3 +598,41 @@ def check_for_renewal(invoice, sales_order, renewal_for):
         else:
             return True
 
+
+@frappe.whitelist()
+def get_plan_rate_for_new(plan, quantity=1, customer=None, start_date=None, end_date=None, prorate_factor=1):
+    plan = frappe.get_doc("Subscription Plan", plan)
+    if plan.price_determination == "Fixed Rate":
+        return plan.cost * prorate_factor
+
+    elif plan.price_determination == "Based On Price List":
+        if customer:
+            rate = get_price_list(plan, customer)
+            return rate
+
+    elif plan.price_determination == "Monthly Rate":
+        start_date = getdate(start_date)
+        end_date = getdate(end_date)
+
+        no_of_months = relativedelta.relativedelta(end_date, start_date).months + 1
+        cost = plan.cost * no_of_months
+
+        # Adjust cost if start or end date is not month start or end
+        prorate = frappe.db.get_single_value("Subscription Settings", "prorate")
+
+        if prorate:
+            prorate_factor = flt(
+                date_diff(start_date, get_first_day(start_date))
+                / date_diff(get_last_day(start_date), get_first_day(start_date)),
+                1,
+            )
+
+            prorate_factor += flt(
+                date_diff(get_last_day(end_date), end_date)
+                / date_diff(get_last_day(end_date), get_first_day(end_date)),
+                1,
+            )
+
+            cost -= plan.cost * prorate_factor
+
+        return cost
