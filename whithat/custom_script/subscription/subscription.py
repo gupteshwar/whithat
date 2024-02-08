@@ -607,7 +607,7 @@ def get_plan_rate_for_new(plan, quantity=1, customer=None, start_date=None, end_
 
     elif plan.price_determination == "Based On Price List":
         if customer:
-            rate = get_price_list(plan, customer)
+            rate = get_price_list(plan.name, customer)
             return rate
 
     elif plan.price_determination == "Monthly Rate":
