@@ -76,13 +76,13 @@ def upgrade_plan(doc):
                         i.custom_is_active = 1
                         i.custom_subscription_end_date = subDoc.current_invoice_end
                         subDoc.save()
-                        break
+
                     else:
                         rate = get_plan_rates(subDoc, subDoc.current_invoice_start, subDoc.current_invoice_end, i.custom_billing_based_on, s.amount, i.custom_amount, i.qty, i.plan, start_date, end_date)
                         plans.append(i)
                         if (i.custom_billing_based_on == "Downgrade with Fix Rate") or (i.custom_billing_based_on == "Downgrade with Prorate"):
                             is_return = True
-                        new_invoice = create_invoices(subDoc, prorate, start_date, end_date, plans, rate, is_return)
+                        new_invoice = create_invoices(subDoc, prorate, start_date, end_date, plans, rate, is_return, False, False, si_doc.name)
                         if new_invoice:
                             i.custom_is_active = 1
                             subDoc.append("invoices", {"document_type": doctype, "invoice": new_invoice.name})
@@ -99,7 +99,7 @@ def upgrade_plan(doc):
 
 
 @frappe.whitelist()
-def create_invoices(doc, prorate, start_date, end_date, plans, rate, is_return=None, is_renewal=None, is_new=None):
+def create_invoices(doc, prorate, start_date, end_date, plans, rate, is_return=None, is_renewal=None, is_new=None, pre_invoice=None):
     print('doc--------------------', doc.name)
     subDoc = frappe.get_doc("Subscription", doc.name)
     """
@@ -139,13 +139,19 @@ def create_invoices(doc, prorate, start_date, end_date, plans, rate, is_return=N
     for dimension in accounting_dimensions:
         if subDoc.get(dimension):
             invoice.update({dimension: subDoc.get(dimension)})
+    if is_return:
+        invoice.is_return = 1
+        invoice.return_against = pre_invoice
 
     # Subscription is better suited for service items. I won't update `update_stock`
     # for that reason
     items_list = get_items_from_plans(subDoc, plans, prorate, rate, is_renewal, is_new)
     for item in items_list:
         if is_return:
-            item["rate"] = str(abs(item["rate"]))
+            item["rate"] = str(item['rate'])
+            item["qty"] = '-' + str(item['qty'])
+            print('item rate ----', item['rate'])
+
         item["cost_center"] = subDoc.cost_center
         invoice.append("items", item)
         print('item--------', item)
@@ -191,6 +197,7 @@ def create_invoices(doc, prorate, start_date, end_date, plans, rate, is_return=N
     if is_renewal:
         invoice.custom_is_renewal = 1
 
+
     invoice.flags.ignore_mandatory = True
     invoice.custom_is_custom = 1
     invoice.set_missing_values()
@@ -200,16 +207,16 @@ def create_invoices(doc, prorate, start_date, end_date, plans, rate, is_return=N
         print('subDoc.submit_invoice----', subDoc.submit_invoice)
         invoice.submit()
 
-    if is_return:
-        if subDoc.submit_invoice != 1:
-            print('not subDoc.submit_invoice----', subDoc.submit_invoice)
-            invoice.submit()
-        print('invoice return -----', invoice.name, type(invoice))
-        new_invoice = make_sales_return(invoice.name)
-        new_invoice.from_date = start_date
-        new_invoice.to_date = end_date
-        new_invoice.save()
-        return new_invoice
+
+        # if subDoc.submit_invoice != 1:
+        #     print('not subDoc.submit_invoice----', subDoc.submit_invoice)
+        #     invoice.submit()
+        # print('invoice return -----', invoice.name, type(invoice))
+        # new_invoice = make_sales_return(invoice.name)
+        # new_invoice.from_date = start_date
+        # new_invoice.to_date = end_date
+        # new_invoice.save()
+        # return new_invoice
     return invoice
 
 @frappe.whitelist()
