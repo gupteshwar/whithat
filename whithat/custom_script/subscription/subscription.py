@@ -148,7 +148,7 @@ def create_invoices(doc, prorate, start_date, end_date, plans, rate, is_return=N
     items_list = get_items_from_plans(subDoc, plans, prorate, rate, is_renewal, is_new)
     for item in items_list:
         if is_return:
-            item["rate"] = str(item['rate'])
+            item["rate"] = str(abs(item["rate"]))
             item["qty"] = '-' + str(item['qty'])
             print('item rate ----', item['rate'])
 
