@@ -518,6 +518,8 @@ def send_due_date_alert(invoice, subdoc):
         # Email subject
         subject = f"Sales Invoice {invoice.name} due date is near"
         print('************************************************************************************')
+        print('sub doc-', type(subdoc))
+
         # Email body
         body = f"Dear {subdoc.party},<br><br>"
         body += (f"This is system generated alert for Your current invoice {invoice.name} due date is near.<br>")
@@ -530,6 +532,16 @@ def send_due_date_alert(invoice, subdoc):
             message=body
         )
         print('email sent-', subdoc.custom_party_email, subject, body)
+        frappe.get_doc(
+            {
+                "doctype": "Comment",
+                "comment_type": "Comment",
+                "reference_doctype": subdoc.doctype,
+                "reference_name": str(subdoc.name),
+                "content": "Email Notification Sent Successfully!!!",
+            }
+        ).insert()
+        frappe.msgprint("Notification Triggered", indicator="green", alert=True)
         return True
     except Exception as e:
         print("Error sending email:", e)
