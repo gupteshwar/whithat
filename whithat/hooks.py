@@ -145,6 +145,9 @@ scheduler_events = {
         '0 8 * * *': [
             'whithat.custom_script.subscription.subscription.cron_price_alteration'
         ],
+        '0 8 * * *': [
+            'whithat.custom_script.subscription.subscription.invoice_due_date_alert'
+        ],
     },
 }
 # scheduler_events = {
