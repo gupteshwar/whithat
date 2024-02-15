@@ -357,21 +357,21 @@ def get_price_list(plan, customer):
 
 
 @frappe.whitelist()
-def send_email(subdoc, invoive=None, sales_order=None):
-    print('subdoc & invoice -------', subdoc, invoive, type(subdoc), type(invoive))
+def send_email(subdoc, invoice=None, sales_order=None):
+    print('subdoc & invoice -------', subdoc, invoice, type(subdoc), type(invoice))
     try:
-        if invoive:
+        if invoice:
             # Email subject
-            subject = f"Sales Invoice { invoive.name } due date is near"
+            subject = f"Sales Invoice { invoice.name } due date is near"
 
             # Email body
             body = f"Dear {subdoc.party},<br><br>"
             body += f"We would like to notify you that a sales Invoice has been generated in the ERP system. Kindly find the details below:<br>"
             body += f"<b>Sales Invoice Details:</b><br><br>"
-            body += f"Sales Invoice No: {invoive.name}<br>"
-            body += f"Date: {invoive.posting_date}<br>"
-            body += f"Grand Total: {invoive.grand_total}<br>"
-            body += f"Outstanding Amount: {invoive.outstanding_amount}<br><br>"
+            body += f"Sales Invoice No: {invoice.name}<br>"
+            body += f"Date: {invoice.posting_date}<br>"
+            body += f"Grand Total: {invoice.grand_total}<br>"
+            body += f"Outstanding Amount: {invoice.outstanding_amount}<br><br>"
             body += f"Review the information in this Sales Invoice to ensure its accuracy.<br>"
             body += f"Should you have any inquiries or require further clarification, Thank you for your prompt attention to this matter.<br><br>"
             body += f"Best regards:<br>"
@@ -489,6 +489,43 @@ def cron_upgrade_plan():
     subscription = frappe.get_all('Subscription')
     for sub in subscription:
         upgrade_plan(sub.name)
+
+@frappe.whitelist()
+def invoice_due_date_alert():
+    subscription = frappe.get_all('Subscription')
+    for sub in subscription:
+        # print('--------------- sub ------------', sub, type(sub), sub.name)
+        subDoc = frappe.get_doc('Subscription', sub.name)
+        invoice = Subscription.get_current_invoice(subDoc)
+        if invoice:
+            due_days = date_diff(invoice.due_date, date.today())
+            print('due days -------- ', due_days)
+            if due_days == subDoc.custom_invoice_due_date_alert:
+                send_due_date_alert(invoice, subDoc)
+
+@frappe.whitelist()
+def send_due_date_alert(invoice, subdoc):
+    try:
+        # Email subject
+        subject = f"Sales Invoice {invoice.name} due date is near"
+        print('************************************************************************************')
+        # Email body
+        body = f"Dear {subdoc.party},<br><br>"
+        body += (f"This is system generated alert for Your current invoice {invoice.name} due date is near.<br>")
+        body += f" You will receive next installment invoice in next {subdoc.custom_invoice_due_date_alert} days.Thanks<br>"
+
+        # Send the email
+        frappe.sendmail(
+            recipients=subdoc.custom_party_email,
+            subject=subject,
+            message=body
+        )
+        print('email sent-', subdoc.custom_party_email, subject, body)
+        return True
+    except Exception as e:
+        print("Error sending email:", e)
+        raise e
+
 @frappe.whitelist()
 def create_sales_order(doc, prorate, start_date, end_date, plans, rate, is_return=None, is_renewal=None, is_new=None):
     print('doc--------------------', doc.name)
@@ -587,7 +624,7 @@ def get_current_sales_order(doc):
             doc = frappe.get_doc(doctype, current.get("sales_order"))
             return doc
         else:
-            frappe.throw(_("Invoice {0} no longer exists").format(current.get("sales_order")))
+            frappe.throw(_("Sales Order {0} no longer exists").format(current.get("sales_order")))
 
 @frappe.whitelist()
 def check_for_renewal(invoice, sales_order, renewal_for):
