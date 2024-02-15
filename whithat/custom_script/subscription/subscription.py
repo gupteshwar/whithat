@@ -504,6 +504,15 @@ def invoice_due_date_alert():
                 send_due_date_alert(invoice, subDoc)
 
 @frappe.whitelist()
+def due_date_alert(sub):
+    subDoc = frappe.get_doc('Subscription', sub)
+    invoice = Subscription.get_current_invoice(subDoc)
+    if invoice:
+        due_days = date_diff(invoice.due_date, date.today())
+        print('due days -------- ', due_days)
+        if due_days == subDoc.custom_invoice_due_date_alert:
+            send_due_date_alert(invoice, subDoc)
+@frappe.whitelist()
 def send_due_date_alert(invoice, subdoc):
     try:
         # Email subject
