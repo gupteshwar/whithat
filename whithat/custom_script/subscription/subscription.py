@@ -398,9 +398,8 @@ def get_items_from_plans(self, plans, prorate=0, rate=0, is_renewal=None, is_new
             item_code = plan_doc.item
 
         elif is_combine:
-            print('\nitem\n', plan['item'])
-            spi = frappe.get_doc('Subscription Plan Detail', plan['item'])
-
+            print('\nitem-\n',type(plan['item']), plan['item'], plan['item'].name)
+            spi = frappe.get_doc('Subscription Plan Detail', plan['item'].name)
             qty = spi.qty
             plan_doc = frappe.get_doc("Subscription Plan", spi.plan)
             rate = plan['rate']
@@ -410,7 +409,7 @@ def get_items_from_plans(self, plans, prorate=0, rate=0, is_renewal=None, is_new
 
         else:
             print('\nitem\n', plan['item'])
-            spi = frappe.get_doc('Subscription Plan Detail', plan['item'])
+            spi = frappe.get_doc('Subscription Plan Detail', plan['item'].name)
             qty = spi.qty
             plan_doc = frappe.get_doc("Subscription Plan", spi.plan)
             rate = rate
