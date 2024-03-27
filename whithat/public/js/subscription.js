@@ -9,7 +9,7 @@ frappe.ui.form.on('Subscription', {
                     },
                     callback: function(r){
                         console.log(r.message)
-                        frm.refresh();
+                        cur_frm.refresh();
                     }
                 });
             });
