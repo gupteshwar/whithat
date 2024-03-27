@@ -1,5 +1,8 @@
 frappe.ui.form.on('Subscription', {
     refresh: function(frm){
+        if (frm.doc.custom_is_combination_plans == 1){
+            frm.remove_custom_button('Fetch Subscription Updates');
+        }
         if(!frm.is_new()){
             frm.add_custom_button(__('Update'),function() {
                 frappe.call({
