@@ -104,16 +104,14 @@ def upgrade_plan(doc):
                         i.custom_subscription_end_date = subDoc.current_invoice_end
                         end_date = subDoc.current_invoice_end
                     plan_doc = frappe.get_doc("Subscription Plan", i.plan)
-                    for s in si_doc.items:
-                        is_return = False
+                    # for s in si_doc.items:
+                    is_return = False
 
 
-                        if (s.item_code == plan_doc.item and i.qty == s.qty and i.custom_amount == s.amount and i.custom_billing_based_on != 'Prorate'):
-                            i.custom_subscription_end_date = subDoc.current_invoice_end
-                            if s.custom_is_added:
-                                i.custom_is_active = 1
-                            print('added -  . .. . . . . . ', s.custom_is_added)
-                            subDoc.save()
+                        # if (s.item_code == plan_doc.item and i.qty == s.qty and i.custom_amount == s.amount) and s.custom_is_added == 1:
+                        #     i.db_set('custom_subscription_end_date', subDoc.current_invoice_end)
+                        #     i.db_set('custom_is_active', 1)
+                        #     print('added -  . .. . . . . . ', s.custom_is_added)
 
                     if not i.custom_is_active:
                         rate = get_plan_rates(subDoc, subDoc.current_invoice_start, subDoc.current_invoice_end, i.custom_billing_based_on, 0, i.custom_amount, i.qty, i.plan, start_date, end_date)
@@ -393,6 +391,7 @@ def get_items_from_plans(self, plans, prorate=0, rate=0, is_renewal=None, is_new
                                   plan.custom_subscription_start_date,
                                   plan.custom_subscription_end_date, True)
             qty = plan.qty
+            plan.db_set('custom_is_active', 1)
             print('\nrate----------------', rate)
             plan_doc = frappe.get_doc("Subscription Plan", plan.plan)
             item_code = plan_doc.item
@@ -400,6 +399,7 @@ def get_items_from_plans(self, plans, prorate=0, rate=0, is_renewal=None, is_new
         elif is_combine:
             print('\nitem-\n',type(plan['item']), plan['item'], plan['item'].name)
             spi = frappe.get_doc('Subscription Plan Detail', plan['item'].name)
+            spi.db_set('custom_is_active', 1)
             qty = spi.qty
             plan_doc = frappe.get_doc("Subscription Plan", spi.plan)
             rate = plan['rate']
