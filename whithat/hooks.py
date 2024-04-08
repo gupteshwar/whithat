@@ -122,6 +122,10 @@ fixtures = [
 # 	"ToDo": "custom_app.overrides.CustomToDo"
 # }
 
+override_doctype_class = {
+	"Subscription": "whithat.custom_script.subscription.subscription.Custom_Subscription"
+}
+
 # Document Events
 # ---------------
 # Hook on document methods and events
