@@ -19,6 +19,77 @@ from datetime import date
 from erpnext.accounts.doctype.subscription_plan.subscription_plan import get_plan_rate
 from frappe.utils.data import get_datetime
 
+class Custom_Subscription(Subscription):
+
+    def get_items_from_plans(self, plans, prorate=0):
+        print('\n\n --------*--------- \n\n get plan items')
+        """
+        Returns the `Item`s linked to `Subscription Plan`
+        """
+        if prorate:
+            prorate_factor = get_prorata_factor(
+                self.current_invoice_end, self.current_invoice_start, self.generate_invoice_at_period_start
+            )
+
+        items = []
+        party = self.party
+        for plan in plans:
+            plan_doc = frappe.get_doc("Subscription Plan", plan.plan)
+
+            item_code = plan_doc.item
+
+            if self.party == "Customer":
+                deferred_field = "enable_deferred_revenue"
+            else:
+                deferred_field = "enable_deferred_expense"
+
+            deferred = frappe.db.get_value("Item", item_code, deferred_field)
+
+            if not prorate:
+                item = {
+                    "item_code": item_code,
+                    "custom_subscription_plan": plan_doc.name,
+                    "qty": plan.qty,
+                    "rate": get_plan_rate(
+                        plan.plan, plan.qty, party, self.current_invoice_start, self.current_invoice_end
+                    ),
+                    "cost_center": plan_doc.cost_center,
+                }
+            else:
+                item = {
+                    "item_code": item_code,
+                    "custom_subscription_plan": plan_doc.name,
+                    "qty": plan.qty,
+                    "rate": get_plan_rate(
+                        plan.plan,
+                        plan.qty,
+                        party,
+                        self.current_invoice_start,
+                        self.current_invoice_end,
+                        prorate_factor,
+                    ),
+                    "cost_center": plan_doc.cost_center,
+                }
+
+            if deferred:
+                item.update(
+                    {
+                        deferred_field: deferred,
+                        "service_start_date": self.current_invoice_start,
+                        "service_end_date": self.current_invoice_end,
+                    }
+                )
+
+            accounting_dimensions = get_accounting_dimensions()
+
+            for dimension in accounting_dimensions:
+                if plan_doc.get(dimension):
+                    item.update({dimension: plan_doc.get(dimension)})
+
+            items.append(item)
+
+        return items
+
 @frappe.whitelist()
 def upgrade_plan(doc):
 
@@ -183,7 +254,7 @@ def create_invoices_combination(doc, prorate, plans, rate, is_return=None, is_re
 
     # Subscription is better suited for service items. I won't update `update_stock`
     # for that reason
-    items_list = get_items_from_plans(subDoc, plans, prorate, rate, is_renewal, is_new, is_combine)
+    items_list = get_items_from_plan(subDoc, plans, prorate, rate, is_renewal, is_new, is_combine)
     for item in items_list:
         if is_return:
 
@@ -297,7 +368,7 @@ def create_invoices(doc, prorate, start_date, end_date, plans, rate, is_return=N
 
     # Subscription is better suited for service items. I won't update `update_stock`
     # for that reason
-    items_list = get_items_from_plans(subDoc, plans, prorate, rate, is_renewal, is_new)
+    items_list = get_items_from_plan(subDoc, plans, prorate, rate, is_renewal, is_new)
     for item in items_list:
         if is_return:
 
@@ -363,7 +434,7 @@ def create_invoices(doc, prorate, start_date, end_date, plans, rate, is_return=N
     return invoice
 
 @frappe.whitelist()
-def get_items_from_plans(self, plans, prorate=0, rate=0, is_renewal=None, is_new=None, is_combine=None):
+def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=None, is_combine=None):
     """
     Returns the `Item`s linked to `Subscription Plan`
     """
@@ -425,6 +496,7 @@ def get_items_from_plans(self, plans, prorate=0, rate=0, is_renewal=None, is_new
         if not prorate:
             item = {
                 "item_code": item_code,
+                "custom_subscription_plan": plan_doc.name,
                 "qty": qty,
                 "rate": rate,
                 "cost_center": plan_doc.cost_center,
@@ -432,6 +504,7 @@ def get_items_from_plans(self, plans, prorate=0, rate=0, is_renewal=None, is_new
         else:
             item = {
                 "item_code": item_code,
+                "custom_subscription_plan": plan_doc.name,
                 "qty": qty,
                 "rate": rate,
                 "cost_center": plan_doc.cost_center,
@@ -764,7 +837,7 @@ def create_sales_order(doc, prorate, start_date, end_date, plans, rate, is_retur
 
     # Subscription is better suited for service items. I won't update `update_stock`
     # for that reason
-    items_list = get_items_from_plans(subDoc, plans, prorate, rate, is_renewal, is_new)
+    items_list = get_items_from_plan(subDoc, plans, prorate, rate, is_renewal, is_new)
     for item in items_list:
         item["cost_center"] = subDoc.cost_center
         Sales_Order.append("items", item)
