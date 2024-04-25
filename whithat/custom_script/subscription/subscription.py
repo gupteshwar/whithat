@@ -1,4 +1,5 @@
 import frappe
+from dateutil.relativedelta import relativedelta as rd
 from erpnext.accounts.doctype.subscription.subscription import Subscription
 from erpnext.accounts.doctype.subscription.subscription import get_prorata_factor
 from frappe import _
@@ -15,7 +16,7 @@ from frappe.utils.data import (
 from frappe.utils import date_diff, flt, get_first_day, get_last_day, getdate
 from dateutil import relativedelta
 from erpnext.accounts.doctype.sales_invoice.sales_invoice import make_sales_return
-from datetime import date
+from datetime import date, datetime
 from erpnext.accounts.doctype.subscription_plan.subscription_plan import get_plan_rate
 from frappe.utils.data import get_datetime
 
@@ -35,9 +36,16 @@ class Custom_Subscription(Subscription):
         party = self.party
         for plan in plans:
             plan_doc = frappe.get_doc("Subscription Plan", plan.plan)
-
             item_code = plan_doc.item
-
+            item_name = frappe.get_value('Item', item_code, 'item_name')
+            if plan_doc.billing_interval == 'Month':
+                total_contract_amount = get_total_contract_amount(self.start_date, self.end_date, plan_doc.billing_interval_count, plan_doc.cost)
+            else:
+                total_contract_amount = plan_doc.cost
+            if self.end_date:
+                description = str(item_name) + ' ' + str(self.start_date.strftime("%d-%m-%Y")) + ' ' + 'to' + ' ' + str(self.end_date.strftime("%d-%m-%Y")) + ' ' + 'Total Contract Value AED' + ' ' + str(total_contract_amount) + '' + '+VAT'
+            else:
+                description = item_name
             if self.party == "Customer":
                 deferred_field = "enable_deferred_revenue"
             else:
@@ -50,6 +58,7 @@ class Custom_Subscription(Subscription):
                     "item_code": item_code,
                     "custom_subscription_plan": plan_doc.name,
                     "qty": plan.qty,
+                    "description": description,
                     "rate": get_plan_rate(
                         plan.plan, plan.qty, party, self.current_invoice_start, self.current_invoice_end
                     ),
@@ -60,6 +69,7 @@ class Custom_Subscription(Subscription):
                     "item_code": item_code,
                     "custom_subscription_plan": plan_doc.name,
                     "qty": plan.qty,
+                    "description":description,
                     "rate": get_plan_rate(
                         plan.plan,
                         plan.qty,
@@ -89,6 +99,16 @@ class Custom_Subscription(Subscription):
             items.append(item)
 
         return items
+
+@frappe.whitelist()
+def get_total_contract_amount(start_date, end_date,billing_interval_count,cost):
+    print('date >>>>>>>>>>>>>>> ', start_date,end_date )
+    if start_date and end_date:
+        months = (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month)
+        if end_date.day >= start_date.day:
+            months += 1
+        print('\n>>>>>>>>>>>\n>>>>>>>>\n>>>>>', months, cost * (months/billing_interval_count))
+        return cost * (months/billing_interval_count)
 
 @frappe.whitelist()
 def upgrade_plan(doc):
@@ -492,11 +512,23 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
             deferred_field = "enable_deferred_expense"
 
         deferred = frappe.db.get_value("Item", item_code, deferred_field)
-
+        item_name = frappe.get_value('Item', item_code, 'item_name')
+        if plan_doc.billing_interval == 'Month':
+            total_contract_amount = get_total_contract_amount(self.start_date, self.end_date,
+                                                              plan_doc.billing_interval_count, plan_doc.cost)
+        else:
+            total_contract_amount = plan_doc.cost
+        if self.end_date:
+            description = str(item_name) + ' ' + str(self.start_date.strftime("%d-%m-%Y")) + ' ' + 'to' + ' ' + str(
+                self.end_date.strftime("%d-%m-%Y")) + ' ' + 'Total Contract Value AED' + ' ' + str(
+                total_contract_amount) + '' + '+VAT'
+        else:
+            description = item_name
         if not prorate:
             item = {
                 "item_code": item_code,
                 "custom_subscription_plan": plan_doc.name,
+                "description":description,
                 "qty": qty,
                 "rate": rate,
                 "cost_center": plan_doc.cost_center,
@@ -505,6 +537,7 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
             item = {
                 "item_code": item_code,
                 "custom_subscription_plan": plan_doc.name,
+                "description": description,
                 "qty": qty,
                 "rate": rate,
                 "cost_center": plan_doc.cost_center,
