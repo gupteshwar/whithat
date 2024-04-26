@@ -100,6 +100,38 @@ class Custom_Subscription(Subscription):
 
         return items
 
+    def process_for_past_due_date(self):
+        """
+        Called by `process` if the status of the `Subscription` is 'Past Due Date'.
+
+        The possible outcomes of this method are:
+        1. Change the `Subscription` status to 'Active'
+        2. Change the `Subscription` status to 'Cancelled'
+        3. Change the `Subscription` status to 'Unpaid'
+        """
+        current_invoice = self.get_current_invoice()
+        if not current_invoice:
+            frappe.throw(_("Current invoice {0} is missing").format(current_invoice.invoice))
+        else:
+            if not self.has_outstanding_invoice():
+                self.status = "Active"
+            else:
+                self.set_status_grace_period()
+
+            # Generate invoices periodically even if current invoice are unpaid
+            if (
+                    self.generate_new_invoices_past_due_date
+                    and not self.is_current_invoice_generated(self.current_invoice_start, self.current_invoice_end)
+                    and (self.is_postpaid_to_invoice() or self.is_prepaid_to_invoice())
+            ):
+
+                prorate = frappe.db.get_single_value("Subscription Settings", "prorate")
+                self.generate_invoice(prorate)
+
+                if getdate() > getdate(self.current_invoice_end):
+                    self.update_subscription_period(add_days(self.current_invoice_end, 1))
+
+
 @frappe.whitelist()
 def get_total_contract_amount(start_date, end_date,billing_interval_count,cost):
     print('date >>>>>>>>>>>>>>> ', start_date,end_date )
