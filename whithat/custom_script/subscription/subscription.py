@@ -45,7 +45,7 @@ class Custom_Subscription(Subscription):
             if self.end_date:
                 description = str(item_name) + ' ' + str(self.start_date.strftime("%d-%m-%Y")) + ' ' + 'to' + ' ' + str(self.end_date.strftime("%d-%m-%Y")) + ' ' + 'Total Contract Value AED' + ' ' + str(total_contract_amount) + '' + '+VAT'
             else:
-                description = item_name
+                description = '- '+item_name
             if self.party == "Customer":
                 deferred_field = "enable_deferred_revenue"
             else:
