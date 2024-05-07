@@ -35,6 +35,7 @@ class Custom_Subscription(Subscription):
         items = []
         party = self.party
         for plan in plans:
+            plan.db_set('custom_is_active', 1)
             plan_doc = frappe.get_doc("Subscription Plan", plan.plan)
             item_code = plan_doc.item
             item_name = frappe.get_value('Item', item_code, 'item_name')
@@ -43,7 +44,7 @@ class Custom_Subscription(Subscription):
             else:
                 total_contract_amount = plan_doc.cost
             if self.end_date:
-                description = str(item_name) + ' ' + str(self.start_date.strftime("%d-%m-%Y")) + ' ' + 'to' + ' ' + str(self.end_date.strftime("%d-%m-%Y")) + ' ' + 'Total Contract Value AED' + ' ' + str(total_contract_amount) + '' + '+VAT'
+                description = str(item_name) + ' ' + 'Subscription From' + ' ' + str(self.start_date.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(self.end_date.strftime("%d-%m-%Y")) + ' ' + 'Installment From'+ ' ' + str(self.current_invoice_start.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(self.current_invoice_end.strftime("%d-%m-%Y")) + ' ' + 'Total Contract Value AED' + ' ' + str(total_contract_amount) + ' ' + '+VAT'
             else:
                 description = '- '+item_name
             if self.party == "Customer":
@@ -500,13 +501,17 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
     party = self.party
 
     for plan in plans:
-
+        not_add_for_renewal = False
         if is_renewal:
             rate = get_plan_rate_for_new(plan.plan, plan.qty, party, self.current_invoice_start, self.current_invoice_end)
             print('rate~~~~~~~~~~~~~~', rate)
             qty = plan.qty
+            plan.db_set('custom_is_active', 1)
             plan_doc = frappe.get_doc("Subscription Plan", plan.plan)
             item_code = plan_doc.item
+            if plan.custom_is_renewal:
+                not_add_for_renewal = True
+                print('not add for renewal',not_add_for_renewal)
 
         elif is_new:
             rate = get_plan_rates(self, self.current_invoice_start, self.current_invoice_end,
@@ -533,6 +538,7 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
         else:
             print('\nitem\n', plan['item'])
             spi = frappe.get_doc('Subscription Plan Detail', plan['item'].name)
+            spi.db_set('custom_is_active', 1)
             qty = spi.qty
             plan_doc = frappe.get_doc("Subscription Plan", spi.plan)
             rate = rate
@@ -551,46 +557,52 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
         else:
             total_contract_amount = plan_doc.cost
         if self.end_date:
-            description = str(item_name) + ' ' + str(self.start_date.strftime("%d-%m-%Y")) + ' ' + 'to' + ' ' + str(
-                self.end_date.strftime("%d-%m-%Y")) + ' ' + 'Total Contract Value AED' + ' ' + str(
-                total_contract_amount) + '' + '+VAT'
+            description = str(item_name) + ' ' + 'Subscription From' + ' ' + str(
+                self.start_date.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(
+                self.end_date.strftime("%d-%m-%Y")) + ' ' + 'Installment From' + ' ' + str(
+                self.current_invoice_start.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(
+                self.current_invoice_end.strftime("%d-%m-%Y")) + ' ' + 'Total Contract Value AED' + ' ' + str(
+                total_contract_amount) + ' ' + '+VAT'
+
         else:
             description = item_name
-        if not prorate:
-            item = {
-                "item_code": item_code,
-                "custom_subscription_plan": plan_doc.name,
-                "description":description,
-                "qty": qty,
-                "rate": rate,
-                "cost_center": plan_doc.cost_center,
-            }
-        else:
-            item = {
-                "item_code": item_code,
-                "custom_subscription_plan": plan_doc.name,
-                "description": description,
-                "qty": qty,
-                "rate": rate,
-                "cost_center": plan_doc.cost_center,
-            }
-
-        if deferred:
-            item.update(
-                {
-                    deferred_field: deferred,
-                    "service_start_date": plan.custom_subscription_srart_date,
-                    "service_end_date": self.current_invoice_end,
+        if not not_add_for_renewal:
+            print('>>',not_add_for_renewal)
+            if not prorate:
+                item = {
+                    "item_code": item_code,
+                    "custom_subscription_plan": plan_doc.name,
+                    "description":description,
+                    "qty": qty,
+                    "rate": rate,
+                    "cost_center": plan_doc.cost_center,
                 }
-            )
+            else:
+                item = {
+                    "item_code": item_code,
+                    "custom_subscription_plan": plan_doc.name,
+                    "description": description,
+                    "qty": qty,
+                    "rate": rate,
+                    "cost_center": plan_doc.cost_center,
+                }
 
-        accounting_dimensions = get_accounting_dimensions()
+            if deferred:
+                item.update(
+                    {
+                        deferred_field: deferred,
+                        "service_start_date": plan.custom_subscription_srart_date,
+                        "service_end_date": self.current_invoice_end,
+                    }
+                )
 
-        for dimension in accounting_dimensions:
-            if plan_doc.get(dimension):
-                item.update({dimension: plan_doc.get(dimension)})
+            accounting_dimensions = get_accounting_dimensions()
 
-        items.append(item)
+            for dimension in accounting_dimensions:
+                if plan_doc.get(dimension):
+                    item.update({dimension: plan_doc.get(dimension)})
+
+            items.append(item)
 
     return items
 
@@ -645,8 +657,10 @@ def get_plan_rates(subDoc, s_start_date, sp_end_date, billing_based_on, s_amount
 @frappe.whitelist()
 def get_price_list(plan, customer):
     plans = frappe.get_doc("Subscription Plan", plan)
+    last_purchase_rate = frappe.get_value('Item', plans.item, 'last_purchase_rate')
+    print('>>> \n', last_purchase_rate, '\n>>>')
     if plans.price_determination == "Fixed Rate":
-        return plans.cost
+        return plans.cost, last_purchase_rate
     if plans.price_determination == "Based On Price List":
         price = []
         item_prices = frappe.get_all('Item Price', filters={'item_code': plans.item, 'price_list': plans.price_list})
@@ -665,11 +679,11 @@ def get_price_list(plan, customer):
         if price:
             print("---- In price ----")
             p = price[0]
-            return p.price_list_rate
+            return p.price_list_rate, last_purchase_rate
         else:
             Price = item_prices[0]
             price_doc = frappe.get_doc('Item Price', Price['name'])
-            return price_doc.price_list_rate
+            return price_doc.price_list_rate, last_purchase_rate
 
 
 @frappe.whitelist()
@@ -992,7 +1006,8 @@ def get_plan_rate_for_new(plan, quantity=1, customer=None, start_date=None, end_
     elif plan.price_determination == "Based On Price List":
         if customer:
             rate = get_price_list(plan.name, customer)
-            return rate
+            print('rate. >.>.>', rate)
+            return rate[0]
 
     elif plan.price_determination == "Monthly Rate":
         start_date = getdate(start_date)

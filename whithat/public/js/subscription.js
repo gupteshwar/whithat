@@ -3,6 +3,7 @@ frappe.ui.form.on('Subscription', {
         if (frm.doc.custom_is_combination_plans == 1){
             frm.remove_custom_button('Fetch Subscription Updates');
         }
+
         if(!frm.is_new()){
             frm.add_custom_button(__('Update'),function() {
                 frappe.call({
@@ -33,6 +34,24 @@ frappe.ui.form.on('Subscription', {
 });
 
 frappe.ui.form.on("Subscription Plan Detail", {
+    before_plans_remove: function(frm, cdt, cdn) {
+        var row = locals[cdt][cdn];
+        console.log('row',row)
+        if (row.custom_is_active === 1) {
+            frappe.confirm(
+                "Cannot delete active subscription plan details. Do you want to proceed?",
+                function() {
+                    frappe.validated = true;
+                },
+                function() {
+                    frappe.validated = false;
+                    cur_frm.reload_doc();
+                }
+            );
+            return false;
+        }
+        return true;
+    },
     qty: function(frm, cdt, cdn) {
         var row = locals[cdt][cdn];
         if (row.custom_cost != ""){
@@ -44,7 +63,7 @@ frappe.ui.form.on("Subscription Plan Detail", {
         var row = locals[cdt][cdn];
         console.log("in price based on ---!")
         console.log(row.plan)
-        if (row.plan != ""){
+        if (row.plan != "" && frm.doc.party){
             frappe.call({
                 method: 'whithat.custom_script.subscription.subscription.get_price_list',
                 args: {
@@ -53,10 +72,13 @@ frappe.ui.form.on("Subscription Plan Detail", {
                 },
                 callback: function(r){
                     console.log(r.message)
-                    row.custom_cost = r.message;
+                    row.custom_cost = r.message[0];
+                    row.custom_last_purchase_rate = r.message[1];
                     frm.refresh_field('plans');
                 }
             });
         }
     }
 });
+
+
