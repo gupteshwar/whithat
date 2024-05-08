@@ -46,7 +46,7 @@ class Custom_Subscription(Subscription):
             if self.end_date:
                 description = str(item_name) + ' ' + 'Subscription From' + ' ' + str(self.start_date.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(self.end_date.strftime("%d-%m-%Y")) + ' ' + 'Installment From'+ ' ' + str(self.current_invoice_start.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(self.current_invoice_end.strftime("%d-%m-%Y")) + ' ' + 'Total Contract Value AED' + ' ' + str(total_contract_amount) + ' ' + '+VAT'
             else:
-                description = '- '+item_name
+                description = item_name
             if self.party == "Customer":
                 deferred_field = "enable_deferred_revenue"
             else:
@@ -64,6 +64,7 @@ class Custom_Subscription(Subscription):
                         plan.plan, plan.qty, party, self.current_invoice_start, self.current_invoice_end
                     ),
                     "cost_center": plan_doc.cost_center,
+                    "project": plan.custom_project,
                 }
             else:
                 item = {
@@ -80,6 +81,8 @@ class Custom_Subscription(Subscription):
                         prorate_factor,
                     ),
                     "cost_center": plan_doc.cost_center,
+                    "project": plan.custom_project,
+
                 }
 
             if deferred:
@@ -506,6 +509,7 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
             rate = get_plan_rate_for_new(plan.plan, plan.qty, party, self.current_invoice_start, self.current_invoice_end)
             print('rate~~~~~~~~~~~~~~', rate)
             qty = plan.qty
+            project = plan.custom_project
             plan.db_set('custom_is_active', 1)
             plan_doc = frappe.get_doc("Subscription Plan", plan.plan)
             item_code = plan_doc.item
@@ -519,6 +523,7 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
                                   plan.custom_subscription_start_date,
                                   plan.custom_subscription_end_date, True)
             qty = plan.qty
+            project = plan.custom_project
             plan.db_set('custom_is_active', 1)
             print('\nrate----------------', rate)
             plan_doc = frappe.get_doc("Subscription Plan", plan.plan)
@@ -529,17 +534,18 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
             spi = frappe.get_doc('Subscription Plan Detail', plan['item'].name)
             spi.db_set('custom_is_active', 1)
             qty = spi.qty
+            project = spi.custom_project
             plan_doc = frappe.get_doc("Subscription Plan", spi.plan)
             rate = plan['rate']
             item_code = plan['item_code']
             print('\nitem code \n', spi.plan, item_code)
-
 
         else:
             print('\nitem\n', plan['item'])
             spi = frappe.get_doc('Subscription Plan Detail', plan['item'].name)
             spi.db_set('custom_is_active', 1)
             qty = spi.qty
+            project = spi.custom_project
             plan_doc = frappe.get_doc("Subscription Plan", spi.plan)
             rate = rate
             item_code = plan_doc.item
@@ -576,6 +582,8 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
                     "qty": qty,
                     "rate": rate,
                     "cost_center": plan_doc.cost_center,
+                    "project": project,
+
                 }
             else:
                 item = {
@@ -585,6 +593,8 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
                     "qty": qty,
                     "rate": rate,
                     "cost_center": plan_doc.cost_center,
+                    "project": project,
+
                 }
 
             if deferred:
