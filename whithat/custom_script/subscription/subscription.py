@@ -504,7 +504,7 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
     party = self.party
 
     for plan in plans:
-        not_add_for_renewal = False
+        # not_add_for_renewal = False
         if is_renewal:
             rate = get_plan_rate_for_new(plan.plan, plan.qty, party, self.current_invoice_start, self.current_invoice_end)
             print('rate~~~~~~~~~~~~~~', rate)
@@ -513,9 +513,9 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
             plan.db_set('custom_is_active', 1)
             plan_doc = frappe.get_doc("Subscription Plan", plan.plan)
             item_code = plan_doc.item
-            if plan.custom_is_renewal:
-                not_add_for_renewal = True
-                print('not add for renewal',not_add_for_renewal)
+            # if plan.custom_is_renewal:
+            #     not_add_for_renewal = True
+            #     print('not add for renewal',not_add_for_renewal)
 
         elif is_new:
             rate = get_plan_rates(self, self.current_invoice_start, self.current_invoice_end,
@@ -572,47 +572,47 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
 
         else:
             description = item_name
-        if not not_add_for_renewal:
-            print('>>',not_add_for_renewal)
-            if not prorate:
-                item = {
-                    "item_code": item_code,
-                    "custom_subscription_plan": plan_doc.name,
-                    "description":description,
-                    "qty": qty,
-                    "rate": rate,
-                    "cost_center": plan_doc.cost_center,
-                    "project": project,
+        # if not not_add_for_renewal:
+        #     print('>>',not_add_for_renewal)
+        if not prorate:
+            item = {
+                "item_code": item_code,
+                "custom_subscription_plan": plan_doc.name,
+                "description":description,
+                "qty": qty,
+                "rate": rate,
+                "cost_center": plan_doc.cost_center,
+                "project": project,
 
+            }
+        else:
+            item = {
+                "item_code": item_code,
+                "custom_subscription_plan": plan_doc.name,
+                "description": description,
+                "qty": qty,
+                "rate": rate,
+                "cost_center": plan_doc.cost_center,
+                "project": project,
+
+            }
+
+        if deferred:
+            item.update(
+                {
+                    deferred_field: deferred,
+                    "service_start_date": plan.custom_subscription_srart_date,
+                    "service_end_date": self.current_invoice_end,
                 }
-            else:
-                item = {
-                    "item_code": item_code,
-                    "custom_subscription_plan": plan_doc.name,
-                    "description": description,
-                    "qty": qty,
-                    "rate": rate,
-                    "cost_center": plan_doc.cost_center,
-                    "project": project,
+            )
 
-                }
+        accounting_dimensions = get_accounting_dimensions()
 
-            if deferred:
-                item.update(
-                    {
-                        deferred_field: deferred,
-                        "service_start_date": plan.custom_subscription_srart_date,
-                        "service_end_date": self.current_invoice_end,
-                    }
-                )
+        for dimension in accounting_dimensions:
+            if plan_doc.get(dimension):
+                item.update({dimension: plan_doc.get(dimension)})
 
-            accounting_dimensions = get_accounting_dimensions()
-
-            for dimension in accounting_dimensions:
-                if plan_doc.get(dimension):
-                    item.update({dimension: plan_doc.get(dimension)})
-
-            items.append(item)
+        items.append(item)
 
     return items
 
