@@ -37,17 +37,23 @@ frappe.ui.form.on("Subscription Plan Detail", {
     before_plans_remove: function(frm, cdt, cdn) {
         var row = locals[cdt][cdn];
         console.log('row',row)
-        if (row.custom_is_active === 1) {
-            frappe.confirm(
-                "Cannot delete active subscription plan details. Do you want to proceed?",
-                function() {
-                    frappe.validated = true;
-                },
-                function() {
-                    frappe.validated = false;
+         if (row.custom_is_active === 1) {
+            var dialog = new frappe.ui.Dialog({
+                title: 'Warning',
+                fields: [
+                    {
+                        fieldname: 'message',
+                        fieldtype: 'HTML',
+                        options: '<p>Cannot delete active subscription plan details.</p>'
+                    }
+                ],
+                primary_action_label: 'OK',
+                primary_action: function() {
+                    dialog.hide();
                     cur_frm.reload_doc();
                 }
-            );
+            });
+            dialog.show();
             return false;
         }
         return true;

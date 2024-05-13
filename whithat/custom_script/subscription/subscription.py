@@ -368,6 +368,7 @@ def create_invoices_combination(doc, prorate, plans, rate, is_return=None, is_re
     invoice.flags.ignore_mandatory = True
     invoice.custom_is_custom = 1
     invoice.set_missing_values()
+    invoice.custom_subscription = doc.name
     invoice.save()
 
     if subDoc.submit_invoice:
@@ -481,6 +482,7 @@ def create_invoices(doc, prorate, start_date, end_date, plans, rate, is_return=N
     invoice.flags.ignore_mandatory = True
     invoice.custom_is_custom = 1
     invoice.set_missing_values()
+    invoice.custom_subscription = doc.name
     invoice.save()
 
     if subDoc.submit_invoice:
