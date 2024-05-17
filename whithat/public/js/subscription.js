@@ -4,31 +4,39 @@ frappe.ui.form.on('Subscription', {
             frm.remove_custom_button('Fetch Subscription Updates');
         }
 
+        frm.set_df_property('invoices','cannot_delete_rows',true)
+        frm.set_df_property('invoices','cannot_add_rows',true)
+
+        frm.set_df_property('custom_sales_orders','cannot_delete_rows',true)
+        frm.set_df_property('custom_sales_orders','cannot_add_rows',true)
+        
         if(!frm.is_new()){
-            frm.add_custom_button(__('Update'),function() {
-                frappe.call({
-                    method: 'whithat.custom_script.subscription.subscription.upgrade_plan',
-                    args: {
-                        doc: frm.doc,
-                    },
-                    callback: function(r){
-                        console.log(r.message)
-                        cur_frm.refresh();
-                    }
+			if(frm.doc.status !== 'Cancelled'){
+                frm.add_custom_button(__('Update'),function() {
+                    frappe.call({
+                        method: 'whithat.custom_script.subscription.subscription.upgrade_plan',
+                        args: {
+                            doc: frm.doc,
+                        },
+                        callback: function(r){
+                            console.log(r.message)
+                            cur_frm.refresh();
+                        }
+                    });
                 });
-            });
-            frm.add_custom_button(__('Due Date Alert'),function() {
-                frappe.call({
-                    method: 'whithat.custom_script.subscription.subscription.due_date_alert',
-                    args: {
-                        sub: frm.doc.name,
-                    },
-                    callback: function(r){
-                        console.log(r.message)
-                        frm.refresh();
-                    }
+                frm.add_custom_button(__('Due Date Alert'),function() {
+                    frappe.call({
+                        method: 'whithat.custom_script.subscription.subscription.due_date_alert',
+                        args: {
+                            sub: frm.doc.name,
+                        },
+                        callback: function(r){
+                            console.log(r.message)
+                            frm.refresh();
+                        }
+                    });
                 });
-            });
+            }
 		}
     },
 });
