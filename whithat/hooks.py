@@ -127,6 +127,7 @@ override_doctype_class = {
 	"Subscription": "whithat.custom_script.subscription.subscription.Custom_Subscription",
 	"Sales Invoice": "whithat.custom_script.sales_invoice.sales_invoice.CustomSalesInvoice",
 	"Sales Order": "whithat.custom_script.sales_order.sales_order.CustomSalesOrder",
+    "Purchase Invoice": "whithat.custom_script.purchase_invoice.purchase_invoice.CustomPurchaseInvoice",
 }
 
 # Document Events
