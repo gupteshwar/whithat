@@ -91,6 +91,8 @@ frappe.ui.form.on("Subscription Plan Detail", {
                     frm.refresh_field('plans');
                 }
             });
+        }else{
+            frappe.msgprint('Please select party !')
         }
     }
 });
