@@ -1,3 +1,4 @@
+import frappe
 from erpnext.controllers.accounts_controller import AccountsController
 from erpnext.accounts.doctype.sales_invoice.sales_invoice import SalesInvoice
 from erpnext.controllers.print_settings import set_print_templates_for_item_table, set_print_templates_for_taxes
@@ -5,6 +6,19 @@ from frappe.utils import flt
 
 
 class CustomSalesInvoice(SalesInvoice):
+
+    def on_submit(self):
+        super(CustomSalesInvoice, self).on_submit()
+        if self.is_return and self.custom_subscription:
+            SDoc = frappe.get_doc('Subscription', self.custom_subscription)
+            print('sdoc', SDoc)
+            SDoc.append('custom_credit_notes', {
+                'againts_sales_invoice': self.return_against,
+                'credit_note': self.name
+            })
+            SDoc.save()
+
+
 
     def before_print(self, settings=None):
         print('\n >>>>>>>>>>>>>>>>>>>>>>>> before_print >>> \n')
@@ -52,3 +66,4 @@ class CustomSalesInvoice(SalesInvoice):
                 duplicate_list.append(item)
         for item in duplicate_list:
             self.remove(item)
+
