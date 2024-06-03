@@ -65,6 +65,7 @@ class Custom_Subscription(Subscription):
                     ),
                     "cost_center": plan_doc.cost_center,
                     "project": plan.custom_project,
+                    "custom_subscription": self.name,
                 }
             else:
                 item = {
@@ -82,7 +83,7 @@ class Custom_Subscription(Subscription):
                     ),
                     "cost_center": plan_doc.cost_center,
                     "project": plan.custom_project,
-
+                    "custom_subscription": self.name,
                 }
 
             if deferred:
@@ -504,6 +505,7 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
 
     items = []
     party = self.party
+    print('self >>>\n>>>>>>>>>>\n>>>>>>>>>>>>>>>>>', self, type(self))
 
     for plan in plans:
         # not_add_for_renewal = False
@@ -585,6 +587,7 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
                 "rate": rate,
                 "cost_center": plan_doc.cost_center,
                 "project": project,
+                "custom_subscription": self.name,
 
             }
         else:
@@ -596,6 +599,7 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
                 "rate": rate,
                 "cost_center": plan_doc.cost_center,
                 "project": project,
+                "custom_subscription": self.name,
 
             }
 
