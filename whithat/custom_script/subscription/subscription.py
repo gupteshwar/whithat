@@ -545,8 +545,8 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
             print('\nitem code \n', spi.plan, item_code)
 
         else:
-            print('\nitem\n', plan['item'])
-            spi = frappe.get_doc('Subscription Plan Detail', plan['item'].name)
+            # print('\nitem\n', plan['item'])
+            spi = frappe.get_doc('Subscription Plan Detail', plan['name'])
             spi.db_set('custom_is_active', 1)
             qty = spi.qty
             project = spi.custom_project
@@ -624,7 +624,7 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
 
 @frappe.whitelist()
 def get_plan_rates(subDoc, s_start_date, sp_end_date, billing_based_on, s_amount, p_amount, p_qty, plan, start_date=None, end_date=None, is_new=None):
-    print('plan -------------', plan)
+    print('plan -------------', plan,subDoc, type(subDoc))
     plan = frappe.get_doc("Subscription Plan", plan)
     if billing_based_on == "Fixed Rate":
         rate = p_amount / p_qty
@@ -632,10 +632,14 @@ def get_plan_rates(subDoc, s_start_date, sp_end_date, billing_based_on, s_amount
 
     elif billing_based_on == "Prorate":
 
-        _current_invoice_start = Subscription.get_current_invoice_start(subDoc, start_date)
-        _current_invoice_end = Subscription.get_current_invoice_end(subDoc, _current_invoice_start)
+        # _current_invoice_start = Subscription.get_current_invoice_start(subDoc, start_date)
+        # _current_invoice_end = Subscription.get_current_invoice_end(subDoc, _current_invoice_start)
+        _current_invoice_start = subDoc.start_date
+        _current_invoice_end = subDoc.end_date
         s_no_of_day = date_diff(_current_invoice_end, _current_invoice_start)
         cp_no_of_day = date_diff(end_date, start_date)
+        print(end_date,start_date,'------------',_current_invoice_start,_current_invoice_end)
+
         if is_new:
             p_current_amount = (p_amount / 365) * cp_no_of_day
             rate = p_current_amount / p_qty
@@ -769,7 +773,7 @@ def price_alteration(doc, new_price, valid_from_date):
     for plan in Sub_Plan:
         subscription = frappe.get_all('Subscription Plan Detail',
                                       filters={'plan': plan['name']},
-                                      fields=['parent', 'plan', 'custom_cost', 'qty', 'custom_amount', 'custom_subscription_start_date',
+                                      fields=['name', 'parent', 'plan', 'custom_cost', 'qty', 'custom_amount', 'custom_subscription_start_date',
                                               'custom_subscription_end_date',],
                                       )
         print('sub-len ---', len(subscription))
