@@ -1,4 +1,13 @@
 frappe.ui.form.on('Subscription', {
+//    validate: function(frm){
+//        if (frm.doc.plans && frm.doc.plans.length) {
+//            $.each(frm.doc.plans || [], function(i, item) {
+//                if (item.custom_subscription_start_date || item.custom_subscription_end_date){
+//
+//                }
+//            });
+//        }
+//    },
     refresh: function(frm){
         if (frm.doc.custom_is_combination_plans == 1){
             frm.remove_custom_button('Fetch Subscription Updates');
@@ -73,6 +82,22 @@ frappe.ui.form.on("Subscription Plan Detail", {
         }
         frm.refresh_field('plans');
     },
+    custom_subscription_start_date: function(frm, cdt, cdn) {
+        var row = locals[cdt][cdn];
+        if (row.custom_subscription_start_date){
+            console.log('start date')
+            frappe.model.set_value(cdt, cdn, 'custom_subscription_start_date', row.custom_subscription_start_date)
+        }
+        frm.refresh_field('plans');
+    },
+//    custom_subscription_end_date: function(frm, cdt, cdn) {
+//        var row = locals[cdt][cdn];
+//        if (row.custom_subscription_end_date){
+//            console.log('end date')
+//            frappe.model.set_value(cdt, cdn, 'custom_subscription_end_date', row.custom_subscription_end_date)
+//        }
+//        frm.refresh_field('plans');
+//    },
     plan: function(frm, cdt, cdn) {
         var row = locals[cdt][cdn];
         console.log("in price based on ---!")
