@@ -209,6 +209,7 @@ def upgrade_plan(doc):
                             subDoc.save()
 
                         else:
+
                             rate = get_plan_rates(subDoc, subDoc.current_invoice_start, subDoc.current_invoice_end, i.custom_billing_based_on, s.amount, i.custom_amount, i.qty, i.plan, start_date, end_date)
                             plans.append({'item': i})
                             if (i.custom_billing_based_on == "Downgrade with Fix Rate") or (i.custom_billing_based_on == "Downgrade with Prorate"):
@@ -545,8 +546,8 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
             print('\nitem code \n', spi.plan, item_code)
 
         else:
-            # print('\nitem\n', plan['item'])
-            spi = frappe.get_doc('Subscription Plan Detail', plan['name'])
+            print('\nitem\n', plan['item'])
+            spi = frappe.get_doc('Subscription Plan Detail', plan['item'].name)
             spi.db_set('custom_is_active', 1)
             qty = spi.qty
             project = spi.custom_project
@@ -783,6 +784,7 @@ def price_alteration(doc, new_price, valid_from_date):
                 subscription = get_subscription_list(subscription, ItemPrice.customer)
             print('sub-len ---', len(subscription))
             for sub in subscription:
+                print('----',sub)
                 custom_billing_based_on = ''
                 subDoc = frappe.get_doc('Subscription', sub['parent'])
                 print('sub-doc ---------', subDoc)
@@ -801,7 +803,8 @@ def price_alteration(doc, new_price, valid_from_date):
                         rate = get_plan_rates(subDoc, plan.current_invoice_start, subDoc.current_invoice_end,
                                               custom_billing_based_on, sub['custom_amount'], float(new_amount), sub['qty'],
                                               sub['plan'], valid_from_date, sub['custom_subscription_end_date'])
-                        plans.append(sub)
+                        i = frappe.get_doc('Subscription Plan Detail', sub['name'])
+                        plans.append({'item': i})
                         end_date = sub['custom_subscription_end_date']
                         new_invoice = create_invoices(subDoc, prorate, valid_from_date, end_date, plans, rate,
                                                       is_return)
