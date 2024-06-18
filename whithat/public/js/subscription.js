@@ -1,14 +1,75 @@
 frappe.ui.form.on('Subscription', {
-//    validate: function(frm){
-//        if (frm.doc.plans && frm.doc.plans.length) {
-//            $.each(frm.doc.plans || [], function(i, item) {
-//                if (item.custom_subscription_start_date || item.custom_subscription_end_date){
-//
-//                }
-//            });
-//        }
-//    },
+
+    onload_post_render: function(frm){
+        if (frm.doc.plans && frm.doc.plans.length > 0) {
+            console.log("Plans found:", frm.doc.plans);
+            frm.doc.plans.forEach(function(item) {
+                console.log("Processing item:", item);
+                if (item.custom_is_active === 1) {
+                    console.log("Setting fields to read-only for active item:", item);
+
+                    // Loop through the grid rows to find the matching item
+                    frm.fields_dict['plans'].grid.grid_rows.forEach(function(row) {
+                        if (row.doc.name === item.name) {
+                            console.log("Row found:", row);
+
+                            // Set the fields to read-only
+                            row.docfields.forEach(function(df) {
+                                if (df.fieldname === "custom_subscription_start_date" || df.fieldname === "custom_subscription_end_date") {
+                                    df.read_only = 1;
+                                }
+                            });
+
+                            // Refresh the specific fields in the row
+                            row.refresh();
+                            $(start_date_field.input_area).find('input').prop('readonly', true);
+                            $(end_date_field.input_area).find('input').prop('readonly', true);
+
+                            console.log("Fields set to read-only for row:", item.name);
+                        }
+                    });
+                }
+            });
+            frm.refresh_field("plans");
+        } else {
+            console.log("No plans found or plans array is empty.");
+        }
+    },
     refresh: function(frm){
+        if (frm.doc.plans && frm.doc.plans.length > 0) {
+            console.log("Plans found:", frm.doc.plans);
+            frm.doc.plans.forEach(function(item) {
+                console.log("Processing item:", item);
+                if (item.custom_is_active === 1) {
+                    console.log("Setting fields to read-only for active item:", item);
+
+                    // Loop through the grid rows to find the matching item
+                    frm.fields_dict['plans'].grid.grid_rows.forEach(function(row) {
+                        if (row.doc.name === item.name) {
+                            console.log("Row found:", row);
+
+                            // Set the fields to read-only
+                            row.docfields.forEach(function(df) {
+                                if (df.fieldname === "custom_subscription_start_date" || df.fieldname === "custom_subscription_end_date") {
+                                    df.read_only = 1;
+                                }
+                            });
+
+                            // Refresh the specific fields in the row
+                            row.refresh();
+                            $(start_date_field.input_area).find('input').prop('readonly', true);
+                            $(end_date_field.input_area).find('input').prop('readonly', true);
+
+                            console.log("Fields set to read-only for row:", item.name);
+                        }
+                    });
+                }
+            });
+            frm.refresh_field("plans");
+        } else {
+            console.log("No plans found or plans array is empty.");
+        }
+
         if (frm.doc.custom_is_combination_plans == 1){
             frm.remove_custom_button('Fetch Subscription Updates');
         }
@@ -18,7 +79,7 @@ frappe.ui.form.on('Subscription', {
 
         frm.set_df_property('custom_sales_orders','cannot_delete_rows',true)
         frm.set_df_property('custom_sales_orders','cannot_add_rows',true)
-        
+
         if(!frm.is_new()){
 			if(frm.doc.status !== 'Cancelled'){
                 frm.add_custom_button(__('Update'),function() {
@@ -82,14 +143,14 @@ frappe.ui.form.on("Subscription Plan Detail", {
         }
         frm.refresh_field('plans');
     },
-    custom_subscription_start_date: function(frm, cdt, cdn) {
-        var row = locals[cdt][cdn];
-        if (row.custom_subscription_start_date){
-            console.log('start date')
-            frappe.model.set_value(cdt, cdn, 'custom_subscription_start_date', row.custom_subscription_start_date)
-        }
-        frm.refresh_field('plans');
-    },
+//    custom_subscription_start_date: function(frm, cdt, cdn) {
+//        var row = locals[cdt][cdn];
+//        if (row.custom_subscription_start_date){
+//            console.log('start date')
+//            frappe.model.set_value(cdt, cdn, 'custom_subscription_start_date', row.custom_subscription_start_date)
+//        }
+//        frm.refresh_field('plans');
+//    },
 //    custom_subscription_end_date: function(frm, cdt, cdn) {
 //        var row = locals[cdt][cdn];
 //        if (row.custom_subscription_end_date){
