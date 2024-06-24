@@ -631,19 +631,21 @@ def get_plan_rates(subDoc, s_start_date, sp_end_date, billing_based_on, s_amount
         return rate
 
     elif billing_based_on == "Prorate":
+        invoice = Subscription.get_current_invoice(subDoc)
 
         # _current_invoice_start = Subscription.get_current_invoice_start(subDoc, start_date)
         # _current_invoice_end = Subscription.get_current_invoice_end(subDoc, _current_invoice_start)
-        _current_invoice_start = subDoc.start_date
-        _current_invoice_end = subDoc.end_date
-        s_no_of_day = date_diff(_current_invoice_end, _current_invoice_start)
-        cp_no_of_day = date_diff(end_date, start_date)
-        print(end_date,start_date,'------------',_current_invoice_start,_current_invoice_end)
 
+        cp_no_of_day = date_diff(end_date, start_date)
         if is_new:
             p_current_amount = (p_amount / 365) * cp_no_of_day
             rate = p_current_amount / p_qty
             return rate
+        if invoice:
+            _current_invoice_start = invoice.from_date
+            _current_invoice_end = invoice.to_date
+        s_no_of_day = date_diff(_current_invoice_end, _current_invoice_start)
+        print(end_date,start_date,'------------',_current_invoice_start,_current_invoice_end)
 
         p_current_amount = (p_amount / s_no_of_day)*cp_no_of_day
         print('s-------------------------p-------------------', s_no_of_day, cp_no_of_day, p_current_amount)
