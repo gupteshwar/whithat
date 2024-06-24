@@ -7,24 +7,13 @@ frappe.ui.form.on('Subscription', {
                 console.log("Processing item:", item);
                 if (item.custom_is_active === 1) {
                     console.log("Setting fields to read-only for active item:", item);
-
-                    // Loop through the grid rows to find the matching item
                     frm.fields_dict['plans'].grid.grid_rows.forEach(function(row) {
                         if (row.doc.name === item.name) {
                             console.log("Row found:", row);
-
-                            // Set the fields to read-only
                             row.docfields.forEach(function(df) {
-                                if (df.fieldname === "custom_subscription_start_date" || df.fieldname === "custom_subscription_end_date") {
                                     df.read_only = 1;
-                                }
                             });
-
-                            // Refresh the specific fields in the row
                             row.refresh();
-                            $(start_date_field.input_area).find('input').prop('readonly', true);
-                            $(end_date_field.input_area).find('input').prop('readonly', true);
-
                             console.log("Fields set to read-only for row:", item.name);
                         }
                     });
@@ -42,32 +31,20 @@ frappe.ui.form.on('Subscription', {
                 console.log("Processing item:", item);
                 if (item.custom_is_active === 1) {
                     console.log("Setting fields to read-only for active item:", item);
-
-                    // Loop through the grid rows to find the matching item
                     frm.fields_dict['plans'].grid.grid_rows.forEach(function(row) {
                         if (row.doc.name === item.name) {
                             console.log("Row found:", row);
 
-                            // Set the fields to read-only
                             row.docfields.forEach(function(df) {
-                                if (df.fieldname === "custom_subscription_start_date" || df.fieldname === "custom_subscription_end_date") {
-                                    df.read_only = 1;
-                                }
+                                df.read_only = 1;
                             });
-
-                            // Refresh the specific fields in the row
                             row.refresh();
-                            $(start_date_field.input_area).find('input').prop('readonly', true);
-                            $(end_date_field.input_area).find('input').prop('readonly', true);
-
                             console.log("Fields set to read-only for row:", item.name);
                         }
                     });
                 }
             });
             frm.refresh_field("plans");
-        } else {
-            console.log("No plans found or plans array is empty.");
         }
 
         if (frm.doc.custom_is_combination_plans == 1){
@@ -143,22 +120,6 @@ frappe.ui.form.on("Subscription Plan Detail", {
         }
         frm.refresh_field('plans');
     },
-//    custom_subscription_start_date: function(frm, cdt, cdn) {
-//        var row = locals[cdt][cdn];
-//        if (row.custom_subscription_start_date){
-//            console.log('start date')
-//            frappe.model.set_value(cdt, cdn, 'custom_subscription_start_date', row.custom_subscription_start_date)
-//        }
-//        frm.refresh_field('plans');
-//    },
-//    custom_subscription_end_date: function(frm, cdt, cdn) {
-//        var row = locals[cdt][cdn];
-//        if (row.custom_subscription_end_date){
-//            console.log('end date')
-//            frappe.model.set_value(cdt, cdn, 'custom_subscription_end_date', row.custom_subscription_end_date)
-//        }
-//        frm.refresh_field('plans');
-//    },
     plan: function(frm, cdt, cdn) {
         var row = locals[cdt][cdn];
         console.log("in price based on ---!")
