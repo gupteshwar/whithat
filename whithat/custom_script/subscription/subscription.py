@@ -66,6 +66,7 @@ class Custom_Subscription(Subscription):
                     "cost_center": plan_doc.cost_center,
                     "project": plan.custom_project,
                     "custom_subscription": self.name,
+                    "custom_is_added": 1
                 }
             else:
                 item = {
@@ -84,6 +85,7 @@ class Custom_Subscription(Subscription):
                     "cost_center": plan_doc.cost_center,
                     "project": plan.custom_project,
                     "custom_subscription": self.name,
+                    "custom_is_added": 1
                 }
 
             if deferred:
@@ -138,8 +140,8 @@ class Custom_Subscription(Subscription):
 
 
 @frappe.whitelist()
-def get_total_contract_amount(start_date, end_date,billing_interval_count,cost):
-    print('date >>>>>>>>>>>>>>> ', start_date,end_date )
+def get_total_contract_amount(start_date, end_date, billing_interval_count, cost):
+    print('date >>>>>>>>>>>>>>> ', start_date, end_date )
     if start_date and end_date:
         months = (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month)
         if end_date.day >= start_date.day:
@@ -152,10 +154,7 @@ def upgrade_plan(doc):
 
     data = frappe.parse_json(doc)
     subDoc = frappe.get_doc("Subscription", data['name'])
-
     print('date diff-----------', date_diff(subDoc.current_invoice_end, date.today()))
-
-
     doctype = "Sales Invoice" if subDoc.party_type == "Customer" else "Purchase Invoice"
     invoice = Subscription.get_current_invoice(subDoc)
     sales_order = get_current_sales_order(subDoc)
@@ -203,24 +202,25 @@ def upgrade_plan(doc):
                             i.custom_subscription_end_date = subDoc.current_invoice_end
                             end_date = subDoc.current_invoice_end
 
-                        if invoice.custom_is_custom != 1 and (s.item_code == plan_doc.item and i.qty == s.qty and i.custom_amount == s.amount) and invoice.posting_date == start_date :
+                        # if invoice.custom_is_custom != 1 and (s.item_code == plan_doc.item and i.qty == s.qty and i.custom_amount == s.amount) and invoice.posting_date == start_date :
+                        #     i.custom_is_active = 1
+                        #     i.custom_subscription_end_date = subDoc.current_invoice_end
+                        #     subDoc.save()
+                        #
+                        # else:
+
+                        # if not s.custom_is_added:
+                        rate = get_plan_rates(subDoc, subDoc.current_invoice_start, subDoc.current_invoice_end, i.custom_billing_based_on, s.amount, i.custom_amount, i.qty, i.plan, start_date, end_date)
+                        plans.append({'item': i})
+                        if (i.custom_billing_based_on == "Downgrade with Fix Rate") or (i.custom_billing_based_on == "Downgrade with Prorate"):
+                            is_return = True
+                        new_invoice = create_invoices(subDoc, prorate, start_date, end_date, plans, rate, is_return, False, False, si_doc.name)
+                        if new_invoice:
                             i.custom_is_active = 1
-                            i.custom_subscription_end_date = subDoc.current_invoice_end
+                            subDoc.append("invoices", {"document_type": doctype, "invoice": new_invoice.name})
+                            subDoc.current_invoice_start = new_invoice.from_date
+                            subDoc.current_invoice_end = new_invoice.to_date
                             subDoc.save()
-
-                        else:
-
-                            rate = get_plan_rates(subDoc, subDoc.current_invoice_start, subDoc.current_invoice_end, i.custom_billing_based_on, s.amount, i.custom_amount, i.qty, i.plan, start_date, end_date)
-                            plans.append({'item': i})
-                            if (i.custom_billing_based_on == "Downgrade with Fix Rate") or (i.custom_billing_based_on == "Downgrade with Prorate"):
-                                is_return = True
-                            new_invoice = create_invoices(subDoc, prorate, start_date, end_date, plans, rate, is_return, False, False, si_doc.name)
-                            if new_invoice:
-                                i.custom_is_active = 1
-                                subDoc.append("invoices", {"document_type": doctype, "invoice": new_invoice.name})
-                                subDoc.current_invoice_start = new_invoice.from_date
-                                subDoc.current_invoice_end = new_invoice.to_date
-                                subDoc.save()
         else:
             plans = []
             print('combination')
@@ -242,12 +242,11 @@ def upgrade_plan(doc):
                         #     i.db_set('custom_is_active', 1)
                         #     print('added -  . .. . . . . . ', s.custom_is_added)
 
-                    if not i.custom_is_active:
-                        rate = get_plan_rates(subDoc, subDoc.current_invoice_start, subDoc.current_invoice_end, i.custom_billing_based_on, 0, i.custom_amount, i.qty, i.plan, start_date, end_date)
-                        print('\n\n--------------------\n---------------------\n -----------------rate and item', rate, plan_doc.item)
+                    rate = get_plan_rates(subDoc, subDoc.current_invoice_start, subDoc.current_invoice_end, i.custom_billing_based_on, 0, i.custom_amount, i.qty, i.plan, start_date, end_date)
+                    print('\n\n--------------------\n---------------------\n -----------------rate and item', rate, plan_doc.item)
 
-                        plans.append({'item': i, 'item_code': plan_doc.item, 'rate': rate, 'is_return': is_return, 'start_date': start_date, 'end_date': end_date})
-                        i.db_set('custom_is_active', 1)
+                    plans.append({'item': i, 'item_code': plan_doc.item, 'rate': rate, 'is_return': is_return, 'start_date': start_date, 'end_date': end_date})
+                    i.db_set('custom_is_active', 1)
             print('......................', plans)
             if plans:
                 new_invoice = create_invoices_combination(subDoc, prorate, plans, 0, False, False, False, si_doc.name, True)
@@ -625,7 +624,7 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
 
 @frappe.whitelist()
 def get_plan_rates(subDoc, s_start_date, sp_end_date, billing_based_on, s_amount, p_amount, p_qty, plan, start_date=None, end_date=None, is_new=None):
-    print('plan -------------', plan,subDoc, type(subDoc))
+    print('plan -------------', plan, subDoc, type(subDoc))
     plan = frappe.get_doc("Subscription Plan", plan)
     if billing_based_on == "Fixed Rate":
         rate = p_amount / p_qty
