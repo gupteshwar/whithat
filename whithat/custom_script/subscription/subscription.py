@@ -218,9 +218,9 @@ def upgrade_plan(doc):
                         if new_invoice:
                             i.custom_is_active = 1
                             subDoc.append("invoices", {"document_type": doctype, "invoice": new_invoice.name})
-                            subDoc.db_set('current_invoice_start', new_invoice.from_date)
-                            subDoc.db_set('current_invoice_end', new_invoice.to_date)
-                            # subDoc.save()
+                            subDoc.current_invoice_start = new_invoice.from_date
+                            subDoc.current_invoice_end = new_invoice.to_date
+                            subDoc.save()
         else:
             plans = []
             print('combination')
@@ -252,9 +252,9 @@ def upgrade_plan(doc):
                 new_invoice = create_invoices_combination(subDoc, prorate, plans, 0, False, False, False, si_doc.name, True)
                 if new_invoice:
                     subDoc.append("invoices", {"document_type": doctype, "invoice": new_invoice.name})
-                    subDoc.db_set('current_invoice_start',new_invoice.from_date)
-                    subDoc.db_set('current_invoice_end',new_invoice.to_date)
-                    # subDoc.save()
+                    subDoc.current_invoice_start = new_invoice.from_date
+                    subDoc.current_invoice_end = new_invoice.to_date
+                    subDoc.save()
 
     else:
         new_invoice = create_invoices(subDoc, prorate, subDoc.current_invoice_start, subDoc.current_invoice_end, subDoc.plans, 0, False, False, True)
@@ -810,16 +810,15 @@ def price_alteration(doc, new_price, valid_from_date):
                                                       is_return)
                         if new_invoice:
                             subDoc.append("invoices", {"document_type": 'Sales Invoice', "invoice": new_invoice.name})
-                            subDoc.db_set('current_invoice_start',new_invoice.from_date)
-                            subDoc.db_set('current_invoice_end',new_invoice.to_date)
-                            # subDoc.save()
+                            subDoc.current_invoice_start = new_invoice.from_date
+                            subDoc.current_invoice_end = new_invoice.to_date
                             for i in subDoc.plans:
                                 if sub['plan'] == plan.name:
-                                    i.db_set('custom_cost', new_amount)
-                                    i.db_set('qty', sub['qty'])
-                                    i.db_set('custom_amount', new_amount * sub['qty'])
-                                    i.db_set('custom_is_active', 1)
-                            # subDoc.save()
+                                    i.custom_cost = new_amount
+                                    i.qty = sub['qty']
+                                    i.custom_amount = new_amount * sub['qty']
+                                    i.custom_is_active = 1
+                            subDoc.save()
 
 @frappe.whitelist()
 def get_subscription_list(subscription, customer):
