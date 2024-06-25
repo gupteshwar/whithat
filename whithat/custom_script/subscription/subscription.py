@@ -154,7 +154,7 @@ def upgrade_plan(doc):
 
     data = frappe.parse_json(doc)
     subDoc = frappe.get_doc("Subscription", data['name'])
-    print('date diff-----------', date_diff(subDoc.current_invoice_end, date.today()))
+    print('date diff-----------',subDoc.current_invoice_end, date_diff(subDoc.current_invoice_end, date.today()))
     doctype = "Sales Invoice" if subDoc.party_type == "Customer" else "Purchase Invoice"
     invoice = Subscription.get_current_invoice(subDoc)
     sales_order = get_current_sales_order(subDoc)
@@ -217,7 +217,10 @@ def upgrade_plan(doc):
                         new_invoice = create_invoices(subDoc, prorate, start_date, end_date, plans, rate, is_return, False, False, si_doc.name)
                         if new_invoice:
                             i.custom_is_active = 1
-                            subDoc.append("invoices", {"document_type": doctype, "invoice": new_invoice.name})
+                            if is_return:
+                                subDoc.append("invoices", {"document_type": doctype, "invoice": new_invoice.name,"custom_is_return":1})
+                            else:
+                                subDoc.append("invoices", {"document_type": doctype, "invoice": new_invoice.name})
                             subDoc.current_invoice_start = new_invoice.from_date
                             subDoc.current_invoice_end = new_invoice.to_date
                             subDoc.save()
