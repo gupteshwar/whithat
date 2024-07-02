@@ -216,14 +216,17 @@ def upgrade_plan(doc):
                             is_return = True
                         new_invoice = create_invoices(subDoc, prorate, start_date, end_date, plans, rate, is_return, False, False, si_doc.name)
                         if new_invoice:
-                            i.custom_is_active = 1
+                            i.db_set('custom_is_active', 1)
+
                             if is_return:
+                                subDoc.reload()
                                 subDoc.append("invoices", {"document_type": doctype, "invoice": new_invoice.name,"custom_is_return":1})
                             else:
                                 subDoc.append("invoices", {"document_type": doctype, "invoice": new_invoice.name})
                             subDoc.current_invoice_start = new_invoice.from_date
                             subDoc.current_invoice_end = new_invoice.to_date
                             subDoc.save()
+
         else:
             plans = []
             print('combination')
