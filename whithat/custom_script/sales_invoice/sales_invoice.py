@@ -17,9 +17,13 @@ class CustomSalesInvoice(SalesInvoice):
         if self.is_return and self.custom_subscription:
             SDoc = frappe.get_doc('Subscription', self.custom_subscription)
             print('sdoc', SDoc)
-            for i in SDoc.invoices:
-                if i.invoice == self.name:
-                    i.db_set('custom_is_return', 1)
+            SDoc.append('custom_credit_notes', {
+                'againts_sales_invoice': self.return_against,
+                'credit_note': self.name
+            })
+            SDoc.save()
+            SDoc.reload()
+
 
     def before_print(self, settings=None):
         print('\n >>>>>>>>>>>>>>>>>>>>>>>> before_print >>> \n')
