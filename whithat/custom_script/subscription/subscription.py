@@ -66,7 +66,9 @@ class Custom_Subscription(Subscription):
                     "cost_center": plan_doc.cost_center,
                     "project": plan.custom_project,
                     "custom_subscription": self.name,
-                    "custom_is_added": 1
+                    "custom_is_added": 1,
+                    "custom_s_item_name": plan.name
+
                 }
             else:
                 item = {
@@ -85,7 +87,9 @@ class Custom_Subscription(Subscription):
                     "cost_center": plan_doc.cost_center,
                     "project": plan.custom_project,
                     "custom_subscription": self.name,
-                    "custom_is_added": 1
+                    "custom_is_added": 1,
+                    "custom_s_item_name": plan.name
+
                 }
 
             if deferred:
@@ -516,13 +520,18 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
     for plan in plans:
         # not_add_for_renewal = False
         if is_renewal:
-            rate = get_plan_rate_for_new(plan.plan, plan.qty, party, self.current_invoice_start, self.current_invoice_end)
+            if self.custom_credit_notes:
+                qty = get_qty_for_renewal(self, plan.name, plan.qty)
+            else:
+                qty = plan.qty
+            rate = get_plan_rate_for_new(plan.plan, qty, party, self.current_invoice_start, self.current_invoice_end)
             print('rate~~~~~~~~~~~~~~', rate)
-            qty = plan.qty
             project = plan.custom_project
             plan.db_set('custom_is_active', 1)
             plan_doc = frappe.get_doc("Subscription Plan", plan.plan)
             item_code = plan_doc.item
+            item_id = plan.name
+
             # if plan.custom_is_renewal:
             #     not_add_for_renewal = True
             #     print('not add for renewal',not_add_for_renewal)
@@ -533,6 +542,7 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
                                   plan.custom_subscription_start_date,
                                   plan.custom_subscription_end_date, True)
             qty = plan.qty
+            item_id = plan.name
             project = plan.custom_project
             plan.db_set('custom_is_active', 1)
             print('\nrate----------------', rate)
@@ -549,6 +559,7 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
             rate = plan['rate']
             item_code = plan['item_code']
             print('\nitem code \n', spi.plan, item_code)
+            item_id = spi.name
 
         else:
             print('\nitem\n', plan['item'])
@@ -559,6 +570,7 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
             plan_doc = frappe.get_doc("Subscription Plan", spi.plan)
             rate = rate
             item_code = plan_doc.item
+            item_id = spi.name
 
         if self.party == "Customer":
             deferred_field = "enable_deferred_revenue"
@@ -594,6 +606,7 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
                 "cost_center": plan_doc.cost_center,
                 "project": project,
                 "custom_subscription": self.name,
+                "custom_s_item_name": item_id
 
             }
         else:
@@ -606,6 +619,7 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
                 "cost_center": plan_doc.cost_center,
                 "project": project,
                 "custom_subscription": self.name,
+                "custom_s_item_name": item_id
 
             }
 
@@ -1063,3 +1077,13 @@ def get_plan_rate_for_new(plan, quantity=1, customer=None, start_date=None, end_
             cost -= plan.cost * prorate_factor
 
         return cost
+
+def get_qty_for_renewal(self, name , qty):
+    if self.custom_credit_notes:
+        print('********///////////////////////**********************/////////////////***************')
+        for i in self.custom_credit_notes:
+            invoice = frappe.get_doc('Sales Invoice', i.credit_note)
+            for j in invoice.items:
+                if name == j.custom_s_item_name:
+                    qty = qty - abs(j.qty)
+        return qty
