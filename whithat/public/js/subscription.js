@@ -71,18 +71,18 @@ frappe.ui.form.on('Subscription', {
                         }
                     });
                 });
-                frm.add_custom_button(__('Due Date Alert'),function() {
-                    frappe.call({
-                        method: 'whithat.custom_script.subscription.subscription.due_date_alert',
-                        args: {
-                            sub: frm.doc.name,
-                        },
-                        callback: function(r){
-                            console.log(r.message)
-                            frm.refresh();
-                        }
-                    });
-                });
+//                frm.add_custom_button(__('Due Date Alert'),function() {
+//                    frappe.call({
+//                        method: 'whithat.custom_script.subscription.subscription.due_date_alert',
+//                        args: {
+//                            sub: frm.doc.name,
+//                        },
+//                        callback: function(r){
+//                            console.log(r.message)
+//                            frm.refresh();
+//                        }
+//                    });
+//                });
             }
 		}
     },
