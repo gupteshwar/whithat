@@ -6,7 +6,7 @@ frappe.ui.form.on('Sales Invoice', {
             if (frm.doc.is_return !== 1){
                 frm.set_df_property('items','cannot_delete_rows',true)
             }
-            frm.set_df_property('items','cannot_add_rows',true)
+//            frm.set_df_property('items','cannot_add_rows',true)
         }
     }
 });
