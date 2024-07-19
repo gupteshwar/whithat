@@ -58,7 +58,7 @@ class Custom_Subscription(Subscription):
             #     total_contract_amount = get_total_contract_amount(self.start_date, self.end_date, plan_doc.billing_interval_count, plan_doc.cost)
             # else:
             #     total_contract_amount = plan_doc.cost
-            total_contract_amount = rate*plan.qty
+            total_contract_amount = plan_doc.custom_seling_rate*plan.qty
             if self.end_date:
                 description = str(item_name) + ' ' + 'Subscription From' + ' ' + str(self.start_date.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(self.end_date.strftime("%d-%m-%Y")) + ' ' + 'Installment From'+ ' ' + str(self.current_invoice_start.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(self.current_invoice_end.strftime("%d-%m-%Y")) + ' ' + 'Total Contract Value AED' + ' ' + str(f"{total_contract_amount:,.2f}") + ' ' + '+VAT'
             else:
@@ -592,7 +592,7 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
         #                                                       plan_doc.billing_interval_count, plan_doc.cost)
         # else:
         #     total_contract_amount = plan_doc.cost
-        total_contract_amount = rate*qty
+        total_contract_amount = plan_doc.custom_seling_rate*qty
         if self.end_date:
             description = str(item_name) + ' ' + 'Subscription From' + ' ' + str(
                 self.start_date.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(
