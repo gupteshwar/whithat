@@ -117,6 +117,7 @@ frappe.ui.form.on("Subscription Plan Detail", {
         var row = locals[cdt][cdn];
         if (row.custom_cost != ""){
             row.custom_amount = (row.custom_cost)*(row.qty);
+            row.custom_contract_value = (row.custom_seling_rate)*(row.qty);
         }
         frm.refresh_field('plans');
     },
