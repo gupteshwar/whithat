@@ -39,14 +39,31 @@ class Custom_Subscription(Subscription):
             plan_doc = frappe.get_doc("Subscription Plan", plan.plan)
             item_code = plan_doc.item
             item_name = frappe.get_value('Item', item_code, 'item_name')
-            if plan_doc.billing_interval == 'Month':
-                total_contract_amount = get_total_contract_amount(self.start_date, self.end_date, plan_doc.billing_interval_count, plan_doc.cost)
+
+            if not prorate:
+                rate = get_plan_rate(
+                        plan.plan, plan.qty, party, self.current_invoice_start, self.current_invoice_end
+                    )
             else:
-                total_contract_amount = plan_doc.cost
+                rate = get_plan_rate(
+                            plan.plan,
+                            plan.qty,
+                            party,
+                            self.current_invoice_start,
+                            self.current_invoice_end,
+                            prorate_factor,
+                        )
+
+            # if plan_doc.billing_interval == 'Month':
+            #     total_contract_amount = get_total_contract_amount(self.start_date, self.end_date, plan_doc.billing_interval_count, plan_doc.cost)
+            # else:
+            #     total_contract_amount = plan_doc.cost
+            total_contract_amount = rate*plan.qty
             if self.end_date:
-                description = str(item_name) + ' ' + 'Subscription From' + ' ' + str(self.start_date.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(self.end_date.strftime("%d-%m-%Y")) + ' ' + 'Installment From'+ ' ' + str(self.current_invoice_start.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(self.current_invoice_end.strftime("%d-%m-%Y")) + ' ' + 'Total Contract Value AED' + ' ' + str(total_contract_amount) + ' ' + '+VAT'
+                description = str(item_name) + ' ' + 'Subscription From' + ' ' + str(self.start_date.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(self.end_date.strftime("%d-%m-%Y")) + ' ' + 'Installment From'+ ' ' + str(self.current_invoice_start.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(self.current_invoice_end.strftime("%d-%m-%Y")) + ' ' + 'Total Contract Value AED' + ' ' + str(f"{total_contract_amount:,.2f}") + ' ' + '+VAT'
             else:
                 description = item_name
+
             if self.party == "Customer":
                 deferred_field = "enable_deferred_revenue"
             else:
@@ -60,9 +77,7 @@ class Custom_Subscription(Subscription):
                     "custom_subscription_plan": plan_doc.name,
                     "qty": plan.qty,
                     "description": description,
-                    "rate": get_plan_rate(
-                        plan.plan, plan.qty, party, self.current_invoice_start, self.current_invoice_end
-                    ),
+                    "rate": rate,
                     "cost_center": plan_doc.cost_center,
                     "project": plan.custom_project,
                     "custom_subscription": self.name,
@@ -76,14 +91,7 @@ class Custom_Subscription(Subscription):
                     "custom_subscription_plan": plan_doc.name,
                     "qty": plan.qty,
                     "description":description,
-                    "rate": get_plan_rate(
-                        plan.plan,
-                        plan.qty,
-                        party,
-                        self.current_invoice_start,
-                        self.current_invoice_end,
-                        prorate_factor,
-                    ),
+                    "rate":rate,
                     "cost_center": plan_doc.cost_center,
                     "project": plan.custom_project,
                     "custom_subscription": self.name,
@@ -579,18 +587,19 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
 
         deferred = frappe.db.get_value("Item", item_code, deferred_field)
         item_name = frappe.get_value('Item', item_code, 'item_name')
-        if plan_doc.billing_interval == 'Month':
-            total_contract_amount = get_total_contract_amount(self.start_date, self.end_date,
-                                                              plan_doc.billing_interval_count, plan_doc.cost)
-        else:
-            total_contract_amount = plan_doc.cost
+        # if plan_doc.billing_interval == 'Month':
+        #     total_contract_amount = get_total_contract_amount(self.start_date, self.end_date,
+        #                                                       plan_doc.billing_interval_count, plan_doc.cost)
+        # else:
+        #     total_contract_amount = plan_doc.cost
+        total_contract_amount = rate*qty
         if self.end_date:
             description = str(item_name) + ' ' + 'Subscription From' + ' ' + str(
                 self.start_date.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(
                 self.end_date.strftime("%d-%m-%Y")) + ' ' + 'Installment From' + ' ' + str(
                 self.current_invoice_start.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(
                 self.current_invoice_end.strftime("%d-%m-%Y")) + ' ' + 'Total Contract Value AED' + ' ' + str(
-                total_contract_amount) + ' ' + '+VAT'
+                f"{total_contract_amount:,.2f}") + ' ' + '+VAT'
 
         else:
             description = item_name
