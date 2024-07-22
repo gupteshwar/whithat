@@ -26,7 +26,6 @@ class Custom_Subscription(Subscription):
     def validate_end_date(self):
         billing_cycle_info = self.get_billing_cycle_data()
         end_date = add_to_date(self.start_date, **billing_cycle_info)
-        print('-------------------------------------------------',getdate(self.end_date),getdate(end_date))
         if self.end_date and getdate(self.end_date) < getdate(end_date):
             frappe.throw(
                 _("Subscription End Date must be after {0} as per the subscription plan").format(end_date)
