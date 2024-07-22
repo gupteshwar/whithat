@@ -10,6 +10,7 @@ from erpnext.accounts.doctype.accounting_dimension.accounting_dimension import (
 )
 from frappe.utils.data import (
 	add_days,
+    add_to_date,
 	cint,
     fmt_money
 )
@@ -21,6 +22,15 @@ from erpnext.accounts.doctype.subscription_plan.subscription_plan import get_pla
 from frappe.utils.data import get_datetime
 
 class Custom_Subscription(Subscription):
+
+    def validate_end_date(self):
+        billing_cycle_info = self.get_billing_cycle_data()
+        end_date = add_to_date(self.start_date, **billing_cycle_info)
+        print('-------------------------------------------------',getdate(self.end_date),getdate(end_date))
+        if self.end_date and getdate(self.end_date) < getdate(end_date):
+            frappe.throw(
+                _("Subscription End Date must be after {0} as per the subscription plan").format(end_date)
+            )
 
     def get_items_from_plans(self, plans, prorate=0):
         print('\n\n --------*--------- \n\n get plan items')
@@ -60,9 +70,13 @@ class Custom_Subscription(Subscription):
             #     total_contract_amount = plan_doc.cost
             total_contract_amount = plan_doc.custom_seling_rate*plan.qty
             if self.end_date:
-                description = str(item_name) + ' ' + 'Subscription From' + ' ' + str(self.start_date.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(self.end_date.strftime("%d-%m-%Y")) + ' ' + 'Installment From'+ ' ' + str(self.current_invoice_start.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(self.current_invoice_end.strftime("%d-%m-%Y")) + ' ' + 'Total Contract Value AED' + ' ' + str(f"{total_contract_amount:,.2f}") + ' ' + '+VAT'
+                description = str(item_name) + ' ' + 'Subscription From' + ' ' + str(self.start_date.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(self.end_date.strftime("%d-%m-%Y")) + ' & ' + 'Installment From' + ' ' + str(self.current_invoice_start.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(self.current_invoice_end.strftime("%d-%m-%Y")) + ' ' + 'Total Contract Value AED' + ' ' + str(f"{total_contract_amount:,.2f}") + ' ' + '+VAT'
             else:
-                description = item_name
+                description = str(item_name) + ' ' + 'Subscription From' + ' ' + str(
+                    self.start_date.strftime("%d-%m-%Y")) + ' & ' + 'Installment From' + ' ' + str(
+                    self.current_invoice_start.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(
+                    self.current_invoice_end.strftime("%d-%m-%Y")) + ' ' + 'Total Contract Value AED' + ' ' + str(
+                    f"{total_contract_amount:,.2f}") + ' ' + '+VAT'
 
             if self.party == "Customer":
                 deferred_field = "enable_deferred_revenue"
@@ -596,13 +610,17 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
         if self.end_date:
             description = str(item_name) + ' ' + 'Subscription From' + ' ' + str(
                 self.start_date.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(
-                self.end_date.strftime("%d-%m-%Y")) + ' ' + 'Installment From' + ' ' + str(
+                self.end_date.strftime("%d-%m-%Y")) + ' & ' + 'Installment From' + ' ' + str(
                 self.current_invoice_start.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(
                 self.current_invoice_end.strftime("%d-%m-%Y")) + ' ' + 'Total Contract Value AED' + ' ' + str(
                 f"{total_contract_amount:,.2f}") + ' ' + '+VAT'
 
         else:
-            description = item_name
+            description = str(item_name) + ' ' + 'Subscription From' + ' ' + str(
+                self.start_date.strftime("%d-%m-%Y")) + ' & ' + 'Installment From' + ' ' + str(
+                self.current_invoice_start.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(
+                self.current_invoice_end.strftime("%d-%m-%Y")) + ' ' + 'Total Contract Value AED' + ' ' + str(
+                f"{total_contract_amount:,.2f}") + ' ' + '+VAT'
         # if not not_add_for_renewal:
         #     print('>>',not_add_for_renewal)
         if not prorate:
