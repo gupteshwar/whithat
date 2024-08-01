@@ -9,10 +9,10 @@ from erpnext.accounts.doctype.accounting_dimension.accounting_dimension import (
 	get_accounting_dimensions,
 )
 from frappe.utils.data import (
-	add_days,
+    add_days,
     add_to_date,
-	cint,
-    fmt_money
+    cint,
+    fmt_money, nowdate
 )
 from frappe.utils import date_diff, flt, get_first_day, get_last_day, getdate
 from dateutil import relativedelta
@@ -22,6 +22,22 @@ from erpnext.accounts.doctype.subscription_plan.subscription_plan import get_pla
 from frappe.utils.data import get_datetime
 
 class Custom_Subscription(Subscription):
+
+    def cancel_subscription(self):
+        if self.status != "Cancelled":
+            self.status = "Cancelled"
+            self.cancelation_date = nowdate()
+            if len(self.invoices):
+                for i in self.invoices:
+                    si = frappe.get_doc('Sales Invoice', i.invoice)
+                    if si.status == 'Draft':
+                        si.submit()
+                        si.workflow_state = 'Approved'
+
+                    if si.status != "Cancelled":
+                        si.workflow_state = 'Cancelled'
+                        si.cancel()
+            self.save()
 
     def validate_end_date(self):
         billing_cycle_info = self.get_billing_cycle_data()
@@ -71,7 +87,8 @@ class Custom_Subscription(Subscription):
             if self.end_date:
                 description = str(item_name) + ' ' + 'Subscription From' + ' ' + str(self.start_date.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(self.end_date.strftime("%d-%m-%Y")) + ' & ' + 'Installment From' + ' ' + str(self.current_invoice_start.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(self.current_invoice_end.strftime("%d-%m-%Y")) + ' ' + 'Total Contract Value AED' + ' ' + str(f"{total_contract_amount:,.2f}") + ' ' + '+VAT'
             else:
-                description = str(item_name) + ' ' + 'Subscription From' + ' ' + str(
+                if self.start_date:
+                    description = str(item_name) + ' ' + 'Subscription From' + ' ' + str(
                     self.start_date.strftime("%d-%m-%Y")) + ' & ' + 'Installment From' + ' ' + str(
                     self.current_invoice_start.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(
                     self.current_invoice_end.strftime("%d-%m-%Y")) + ' ' + 'Total Contract Value AED' + ' ' + str(
@@ -615,7 +632,8 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
                 f"{total_contract_amount:,.2f}") + ' ' + '+VAT'
 
         else:
-            description = str(item_name) + ' ' + 'Subscription From' + ' ' + str(
+            if self.start_date:
+                description = str(item_name) + ' ' + 'Subscription From' + ' ' + str(
                 self.start_date.strftime("%d-%m-%Y")) + ' & ' + 'Installment From' + ' ' + str(
                 self.current_invoice_start.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(
                 self.current_invoice_end.strftime("%d-%m-%Y")) + ' ' + 'Total Contract Value AED' + ' ' + str(
@@ -748,9 +766,11 @@ def get_price_list(plan, customer):
             p = price[0]
             return p.price_list_rate, last_purchase_rate
         else:
-            Price = item_prices[0]
-            price_doc = frappe.get_doc('Item Price', Price['name'])
-            return price_doc.price_list_rate, last_purchase_rate
+            if item_prices:
+                Price = item_prices[0]
+                price_doc = frappe.get_doc('Item Price', Price['name'])
+                return price_doc.price_list_rate, last_purchase_rate
+
 
 
 @frappe.whitelist()
@@ -1076,7 +1096,7 @@ def get_plan_rate_for_new(plan, quantity=1, customer=None, start_date=None, end_
         if customer:
             rate = get_price_list(plan.name, customer)
             print('rate. >.>.>', rate)
-            return rate[0]
+            return rate[0] if rate else 0
 
     elif plan.price_determination == "Monthly Rate":
         start_date = getdate(start_date)

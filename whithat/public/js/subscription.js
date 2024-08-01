@@ -50,13 +50,13 @@ frappe.ui.form.on('Subscription', {
         if (frm.doc.custom_is_combination_plans == 1){
             frm.remove_custom_button('Fetch Subscription Updates');
         }
+        if(frappe.session.user != 'Administrator'){
+            frm.set_df_property('invoices','cannot_delete_rows',true)
+            frm.set_df_property('invoices','cannot_add_rows',true)
 
-        frm.set_df_property('invoices','cannot_delete_rows',true)
-        frm.set_df_property('invoices','cannot_add_rows',true)
-
-        frm.set_df_property('custom_sales_orders','cannot_delete_rows',true)
-        frm.set_df_property('custom_sales_orders','cannot_add_rows',true)
-
+            frm.set_df_property('custom_sales_orders','cannot_delete_rows',true)
+            frm.set_df_property('custom_sales_orders','cannot_add_rows',true)
+        }
         if(!frm.is_new()){
 			if(frm.doc.status !== 'Cancelled'){
                 frm.add_custom_button(__('Update'),function() {
