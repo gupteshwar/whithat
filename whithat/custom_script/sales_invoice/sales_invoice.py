@@ -8,10 +8,25 @@ from frappe.utils import flt
 class CustomSalesInvoice(SalesInvoice):
     def validate(self):
         super(CustomSalesInvoice, self).validate()
+        if self.is_new():
+            customer = frappe.get_doc('Customer', self.customer)
+            if customer.sales_team:
+                for i in customer.sales_team:
+                    allocated_amount = float((self.amount_eligible_for_commission * i.allocated_percentage) / 100.0) if i.allocated_percentage else 0.00
+                    incentives = float((allocated_amount * float(i.commission_rate)) / 100.0) if i.commission_rate and allocated_amount else 0.00
+                    self.append("sales_team", {
+                        "sales_person": i.sales_person,
+                        "allocated_percentage": i.allocated_percentage,
+                        "commission_rate": i.commission_rate,
+                        "allocated_amount": allocated_amount,
+                        "incentives": incentives
+                    })
+
         if not self.custom_subscription:
             for i in self.items:
                 if i.custom_subscription:
                     self.custom_subscription = i.custom_subscription
+                    
     def on_submit(self):
         super(CustomSalesInvoice, self).on_submit()
         if self.is_return and self.custom_subscription:
