@@ -26,7 +26,7 @@ class CustomSalesInvoice(SalesInvoice):
             for i in self.items:
                 if i.custom_subscription:
                     self.custom_subscription = i.custom_subscription
-                    
+
     def on_submit(self):
         super(CustomSalesInvoice, self).on_submit()
         if self.is_return and self.custom_subscription:
