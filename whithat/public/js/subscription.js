@@ -136,6 +136,7 @@ frappe.ui.form.on("Subscription Plan Detail", {
                     console.log(r.message)
                     row.custom_cost = r.message[0];
                     row.custom_last_purchase_rate = r.message[1];
+                    row.custom_seling_rate = r.message[2];
                     frm.refresh_field('plans');
                 }
             });

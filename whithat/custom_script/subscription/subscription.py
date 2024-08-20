@@ -79,11 +79,7 @@ class Custom_Subscription(Subscription):
                             prorate_factor,
                         )
 
-            # if plan_doc.billing_interval == 'Month':
-            #     total_contract_amount = get_total_contract_amount(self.start_date, self.end_date, plan_doc.billing_interval_count, plan_doc.cost)
-            # else:
-            #     total_contract_amount = plan_doc.cost
-            total_contract_amount = plan_doc.custom_seling_rate*plan.qty
+            total_contract_amount = plan.custom_contract_value
             if self.end_date:
                 description = str(item_name) + ' ' + 'Subscription From' + ' ' + str(self.start_date.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(self.end_date.strftime("%d-%m-%Y")) + ' & ' + 'Installment From' + ' ' + str(self.current_invoice_start.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(self.current_invoice_end.strftime("%d-%m-%Y")) + ' ' + 'Total Contract Value AED' + ' ' + str(f"{total_contract_amount:,.2f}") + ' ' + '+VAT'
             else:
@@ -569,6 +565,8 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
             plan_doc = frappe.get_doc("Subscription Plan", plan.plan)
             item_code = plan_doc.item
             item_id = plan.name
+            total_contract_amount = plan.custom_contract_value
+
 
             # if plan.custom_is_renewal:
             #     not_add_for_renewal = True
@@ -586,6 +584,8 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
             print('\nrate----------------', rate)
             plan_doc = frappe.get_doc("Subscription Plan", plan.plan)
             item_code = plan_doc.item
+            total_contract_amount = plan.custom_contract_value
+
 
         elif is_combine:
             print('\nitem-\n',type(plan['item']), plan['item'], plan['item'].name)
@@ -598,6 +598,7 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
             item_code = plan['item_code']
             print('\nitem code \n', spi.plan, item_code)
             item_id = spi.name
+            total_contract_amount = spi.custom_contract_value
 
         else:
             print('\nitem\n', plan['item'])
@@ -609,6 +610,8 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
             rate = rate
             item_code = plan_doc.item
             item_id = spi.name
+            total_contract_amount = spi.custom_contract_value
+
 
         if self.party == "Customer":
             deferred_field = "enable_deferred_revenue"
@@ -617,12 +620,8 @@ def get_items_from_plan(self, plans, prorate=0, rate=0, is_renewal=None, is_new=
 
         deferred = frappe.db.get_value("Item", item_code, deferred_field)
         item_name = frappe.get_value('Item', item_code, 'item_name')
-        # if plan_doc.billing_interval == 'Month':
-        #     total_contract_amount = get_total_contract_amount(self.start_date, self.end_date,
-        #                                                       plan_doc.billing_interval_count, plan_doc.cost)
-        # else:
-        #     total_contract_amount = plan_doc.cost
-        total_contract_amount = plan_doc.custom_seling_rate*qty
+
+        # total_contract_amount = plan_doc.custom_seling_rate*qty
         if self.end_date:
             description = str(item_name) + ' ' + 'Subscription From' + ' ' + str(
                 self.start_date.strftime("%d-%m-%Y")) + ' ' + 'To' + ' ' + str(
@@ -745,7 +744,8 @@ def get_price_list(plan, customer):
     last_purchase_rate = frappe.get_value('Item', plans.item, 'last_purchase_rate')
     print('>>> \n', last_purchase_rate, '\n>>>')
     if plans.price_determination == "Fixed Rate":
-        return plans.cost, last_purchase_rate
+        return plans.cost, last_purchase_rate, plans.custom_seling_rate
+
     if plans.price_determination == "Based On Price List":
         price = []
         item_prices = frappe.get_all('Item Price', filters={'item_code': plans.item, 'price_list': plans.price_list})
@@ -764,12 +764,9 @@ def get_price_list(plan, customer):
         if price:
             print("---- In price ----")
             p = price[0]
-            return p.price_list_rate, last_purchase_rate
+            return p.price_list_rate, last_purchase_rate, p.price_list_rate
         else:
-            if item_prices:
-                Price = item_prices[0]
-                price_doc = frappe.get_doc('Item Price', Price['name'])
-                return price_doc.price_list_rate, last_purchase_rate
+            return 0, last_purchase_rate, 0
 
 
 
