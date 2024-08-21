@@ -764,7 +764,12 @@ def get_price_list(plan, customer):
         if price:
             print("---- In price ----")
             p = price[0]
-            return p.price_list_rate, last_purchase_rate, p.price_list_rate
+            rate = p.price_list_rate
+            seling_rate = p.price_list_rate
+            frappe.log_error(
+                message=f"Rate: {rate}, Last Purchase Rate: {last_purchase_rate}, Selling Rate: {seling_rate}",
+                title="Price List Debug")
+            return rate, last_purchase_rate, seling_rate
         else:
             return 0, last_purchase_rate, 0
 
