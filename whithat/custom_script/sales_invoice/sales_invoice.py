@@ -12,8 +12,9 @@ class CustomSalesInvoice(SalesInvoice):
             customer = frappe.get_doc('Customer', self.customer)
             if customer.sales_team:
                 for i in customer.sales_team:
-                    allocated_amount = float((self.amount_eligible_for_commission * i.allocated_percentage) / 100.0) if i.allocated_percentage else 0.00
-                    incentives = float((allocated_amount * float(i.commission_rate)) / 100.0) if i.commission_rate and allocated_amount else 0.00
+                    allocated_amount = flt((self.amount_eligible_for_commission * i.allocated_percentage) / 100.0) if i.allocated_percentage else 0.00
+                    commission_rate = i.commission_rate
+                    incentives = flt((allocated_amount * float(commission_rate.strip('%'))) / 100.0) if i.commission_rate and allocated_amount else 0.00
                     self.append("sales_team", {
                         "sales_person": i.sales_person,
                         "allocated_percentage": i.allocated_percentage,
